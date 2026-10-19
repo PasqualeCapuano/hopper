@@ -3,9 +3,14 @@ import type { Settings } from "./settings";
 
 const IS_MAC = navigator.userAgent.includes("Mac");
 
-/** Registers the global hotkey and every quick action that has one. Returns failed ids. */
+/**
+ * Registers the global hotkey, the screenshot hotkey and every quick action
+ * that has one, and pushes the behaviour prefs to Rust. Returns failed ids.
+ */
 export async function applyHotkeys(settings: Settings): Promise<string[]> {
+  void invoke("set_prefs", { grabSelection: settings.grabSelection }).catch(() => {});
   const bindings = [{ id: "open", shortcut: settings.hotkey }];
+  if (settings.shotHotkey?.trim()) bindings.push({ id: "shot", shortcut: settings.shotHotkey.trim() });
   for (const a of settings.actions) {
     if (a.shortcut?.trim()) bindings.push({ id: a.id, shortcut: a.shortcut.trim() });
   }

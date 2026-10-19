@@ -88,6 +88,10 @@ Drag the popup by its header to move it. It opens centred on the screen you are 
 
 **Your assistant** (Settings → Your assistant) shapes every reply with a few choices instead of a prompt to write: your name and what you do, the language of the answers (same as the text, or a fixed one), tone (direct, warm, formal, casual), length, and the signature for messages written on your behalf. A free field is there for anything else it should know.
 
+**No need to copy first.** With the Accessibility permission, Hopper reads whatever is selected when you press the hotkey (it presses ⌘C for you and puts your clipboard back). Without a selection it uses the clipboard, as before. You can switch this off in Settings → General.
+
+**Screenshots.** Press ⌥⇧Space (Ctrl+Alt+Space on Windows), draw a rectangle, and the popup opens on the capture with the actions that work on images: extract the text, translate what's written, explain, reply, describe, or ask anything in chat. Copying an image and pressing the normal hotkey works the same way. On macOS this needs the Screen Recording permission, asked once. Your model must accept images: Claude, GPT, Gemini and Mistral do; with Ollama pick a vision model such as `llava` or `qwen2.5-vl`.
+
 **Language**: the interface is in English by default. Switch to Italian in Settings → General; the built-in quick actions and the library follow. Other languages are one JSON file away, see `src/locales`.
 
 **Paste back** on macOS needs the Accessibility permission, because Hopper has to press ⌘V on your behalf. macOS asks once, the first time you use it. Everything else works without it.

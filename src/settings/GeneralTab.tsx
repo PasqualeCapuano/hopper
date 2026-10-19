@@ -31,6 +31,7 @@ export default function GeneralTab({ s, update }: { s: Settings; update: (p: Par
   const { t } = useTranslation();
   const [auto, setAuto] = useState(s.autostart);
   const [acc, setAcc] = useState<boolean | null>(null);
+  const [scr, setScr] = useState<boolean | null>(null);
   const [version, setVersion] = useState("");
   const [dataDir, setDataDir] = useState("");
   const [threads, setThreads] = useState<number | null>(null);
@@ -40,6 +41,7 @@ export default function GeneralTab({ s, update }: { s: Settings; update: (p: Par
   useEffect(() => {
     void isEnabled().then(setAuto).catch(() => {});
     void invoke<boolean>("accessibility_granted").then(setAcc);
+    void invoke<boolean>("screen_recording_granted").then(setScr);
     void getVersion().then(setVersion).catch(() => {});
     void appDataDir().then(setDataDir).catch(() => {});
     void listThreads().then((th) => setThreads(th.length)).catch(() => setThreads(0));
@@ -87,6 +89,11 @@ export default function GeneralTab({ s, update }: { s: Settings; update: (p: Par
     setAcc(await invoke<boolean>("accessibility_granted"));
   };
 
+  const requestScreen = async () => {
+    await invoke("screen_recording_prompt");
+    setScr(await invoke<boolean>("screen_recording_granted"));
+  };
+
   const wipeHistory = async () => {
     await clearThreads();
     setThreads(0);
@@ -115,6 +122,8 @@ export default function GeneralTab({ s, update }: { s: Settings; update: (p: Par
         <h2>{t("gen.startup")}</h2>
         <Switch checked={auto} onChange={(v) => void toggleAuto(v)} label={t("gen.autostart")} />
         <div className="help">{t("gen.autostartHelp")}</div>
+        <Switch checked={s.grabSelection} onChange={(v) => { update({ grabSelection: v }); void invoke("set_prefs", { grabSelection: v }).catch(() => {}); }} label={t("gen.grab")} />
+        <div className="help">{t("gen.grabHelp")}</div>
       </section>
 
       <section className="section">
@@ -136,6 +145,12 @@ export default function GeneralTab({ s, update }: { s: Settings; update: (p: Par
             {acc === false ? <button className="btn small" onClick={() => void requestAccessibility()}>{t("gen.request")}</button> : null}
           </div>
           <div className="help">{t("gen.accHelp")}</div>
+          <div className="status-row">
+            <span>{t("gen.screenRecording")}</span>
+            <span className={"status-pill" + (scr ? " ok" : scr === false ? " warn" : "")}>{scr === null ? "…" : scr ? t("gen.granted") : t("gen.notGranted")}</span>
+            {scr === false ? <button className="btn small" onClick={() => void requestScreen()}>{t("gen.request")}</button> : null}
+          </div>
+          <div className="help">{t("gen.screenHelp")}</div>
         </section>
       ) : null}
 

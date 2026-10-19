@@ -6,6 +6,8 @@ import { isLocale, setLocale, type Locale } from "./i18n";
 export type Provider = ProviderId;
 export type Effort = "low" | "medium" | "high";
 export type ActionOutput = "show" | "copy" | "paste";
+export type ActionInput = "any" | "text" | "image";
+const SCHEMA = 2;
 
 export interface QuickAction {
   id: string;
@@ -16,6 +18,8 @@ export interface QuickAction {
   shortcut?: string;
   /** Icon name from src/lib/icons.ts. */
   icon?: string;
+  /** What the action accepts; missing means both text and images. */
+  input?: ActionInput;
 }
 
 export interface Settings {
@@ -28,11 +32,17 @@ export interface Settings {
   /** Structured description of the user; see systemPromptFor(). */
   profile: Profile;
   hotkey: string;
+  /** Global shortcut for the screen-region capture; empty disables it. */
+  shotHotkey: string;
+  /** Press Cmd+C / Ctrl+C at the hotkey to read the selection without copying first. */
+  grabSelection: boolean;
   autostart: boolean;
   theme: "system" | "light" | "dark";
   /** Interface language. English unless the user picks another. */
   locale: Locale;
   actions: QuickAction[];
+  /** Bumped when stored settings need a one-off migration. */
+  schema?: number;
 }
 
 export const ANTHROPIC_MODELS = [
@@ -52,6 +62,10 @@ const DEFAULT_ACTIONS_EN: QuickAction[] = [
     prompt: "Fix grammar, spelling and punctuation mistakes without changing the meaning or the tone. Reply with the corrected text only.\n\n{{text}}" },
   { id: "explain", label: "Explain", icon: "bulb", output: "show",
     prompt: "Explain this text simply and briefly. If it contains requests or deadlines, list them.\n\n{{text}}" },
+  { id: "ocr", label: "Extract the text", icon: "todo", output: "show", input: "image",
+    prompt: "Transcribe all the text in this image exactly, keeping the layout as plain text. Reply with the text only." },
+  { id: "describe", label: "Describe", icon: "search", output: "show", input: "image",
+    prompt: "Describe what is in this image: what it shows, what it is for, and anything that stands out. Be concrete and brief." },
 ];
 
 const DEFAULT_ACTIONS_IT: QuickAction[] = [
@@ -65,6 +79,10 @@ const DEFAULT_ACTIONS_IT: QuickAction[] = [
     prompt: "Correggi errori di grammatica, ortografia e punteggiatura senza cambiare il significato o il tono. Rispondi solo con il testo corretto.\n\n{{testo}}" },
   { id: "explain", label: "Spiega", icon: "bulb", output: "show",
     prompt: "Spiega questo testo in modo semplice e breve, in italiano. Se contiene richieste o scadenze, elencale.\n\n{{testo}}" },
+  { id: "ocr", label: "Estrai il testo", icon: "todo", output: "show", input: "image",
+    prompt: "Trascrivi esattamente tutto il testo presente in questa immagine, mantenendo la struttura come testo semplice. Rispondi solo con il testo." },
+  { id: "describe", label: "Descrivi", icon: "search", output: "show", input: "image",
+    prompt: "Descrivi cosa c'è in questa immagine: cosa mostra, a cosa serve e cosa salta all'occhio. Concreto e breve." },
 ];
 
 /** The built-in quick actions, in the given interface language. */
@@ -95,10 +113,13 @@ export const DEFAULT_SETTINGS: Settings = {
   effort: "medium",
   profile: DEFAULT_PROFILE,
   hotkey: navigator.userAgent.includes("Mac") ? "Alt+Space" : "Ctrl+Shift+Space",
+  shotHotkey: navigator.userAgent.includes("Mac") ? "Alt+Shift+Space" : "Ctrl+Alt+Space",
+  grabSelection: true,
   autostart: false,
   theme: "system",
   locale: "en",
   actions: defaultActions("en"),
+  schema: SCHEMA,
 };
 
 let storePromise: Promise<Store> | null = null;
@@ -129,6 +150,12 @@ export async function loadSettings(): Promise<Settings> {
   // Settings written by 0.1.x kept one model field per provider.
   if (saved.anthropicModel && !merged.models.anthropic) merged.models.anthropic = saved.anthropicModel;
   if (saved.openaiModel && !merged.models.openai) merged.models.openai = saved.openaiModel;
+  // 0.5 added image actions: give them to existing users once.
+  if ((saved.schema ?? 1) < 2 && saved.actions) {
+    const missing = defaultActions(locale).filter((d) => d.input === "image" && !merged.actions.some((a) => a.id === d.id));
+    merged.actions = [...merged.actions, ...missing];
+  }
+  merged.schema = SCHEMA;
   setLocale(merged.locale);
   return merged;
 }
@@ -140,12 +167,21 @@ export async function saveSettings(settings: Settings): Promise<void> {
   setLocale(settings.locale);
 }
 
-/** Fills the copied text into a prompt; both `{{text}}` and `{{testo}}` work in any language. */
+/**
+ * Fills the copied text into a prompt; both `{{text}}` and `{{testo}}` work in
+ * any language. With no text (an image), the placeholder is simply dropped.
+ */
 export function buildPrompt(template: string, text: string): string {
   if (template.includes("{{text}}") || template.includes("{{testo}}")) {
-    return template.split("{{text}}").join(text).split("{{testo}}").join(text);
+    return template.split("{{text}}").join(text).split("{{testo}}").join(text).trim();
   }
-  return `${template}\n\n---\n${text}`;
+  return text ? `${template}\n\n---\n${text}` : template;
+}
+
+/** Whether an action applies to what the popup currently holds. */
+export function actionAccepts(action: QuickAction, kind: "text" | "image"): boolean {
+  const input = action.input ?? "any";
+  return input === "any" || input === kind;
 }
 
 export function modelFor(settings: Settings): string {

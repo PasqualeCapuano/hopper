@@ -307,6 +307,8 @@ function HotkeyTab({ s, update }: { s: SettingsModel; update: (p: Partial<Settin
   const { t } = useTranslation();
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
+  const [shotStatus, setShotStatus] = useState<{ ok: boolean; text: string } | null>(null);
+
   const change = async (shortcut: string) => {
     const next = { ...s, hotkey: shortcut };
     update({ hotkey: shortcut });
@@ -319,6 +321,22 @@ function HotkeyTab({ s, update }: { s: SettingsModel; update: (p: Partial<Settin
       }
     } catch (err) {
       setStatus({ ok: false, text: String(err) });
+    }
+  };
+
+  const changeShot = async (shortcut: string) => {
+    const next = { ...s, shotHotkey: shortcut };
+    update({ shotHotkey: shortcut });
+    if (!shortcut) { setShotStatus(null); return; }
+    try {
+      const failed = await applyHotkeys(next);
+      if (failed.includes("shot")) {
+        setShotStatus({ ok: false, text: t("hk.taken", { sc: prettyShortcut(shortcut) }) });
+      } else {
+        setShotStatus({ ok: true, text: t("hk.active", { sc: prettyShortcut(shortcut) }) });
+      }
+    } catch (err) {
+      setShotStatus({ ok: false, text: String(err) });
     }
   };
 
@@ -335,6 +353,12 @@ function HotkeyTab({ s, update }: { s: SettingsModel; update: (p: Partial<Settin
         <HotkeyRecorder value={s.hotkey} onChange={(sc) => void change(sc)} />
         {status ? <div className={status.ok ? "inline-ok" : "inline-err"}>{status.text}</div> : null}
         <div className="help">{t("hk.help")}</div>
+      </div>
+      <div className="field">
+        <label>{t("hk.shot")}</label>
+        <HotkeyRecorder value={s.shotHotkey} onChange={(sc) => void changeShot(sc)} clearable placeholder={t("rec.none")} />
+        {shotStatus ? <div className={shotStatus.ok ? "inline-ok" : "inline-err"}>{shotStatus.text}</div> : null}
+        <div className="help">{t("hk.shotHelp")}</div>
       </div>
       <div className="field">
         <label>{t("hk.actionsLabel")}</label>

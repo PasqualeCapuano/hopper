@@ -194,6 +194,14 @@ export default function ActionsTab({ s, update }: { s: Settings; update: (p: Par
                 </select>
               </div>
               <div className="field">
+                <label htmlFor="ai">{t("act.input")}</label>
+                <select id="ai" value={action.input ?? "any"} onChange={(e) => patch({ input: e.target.value as QuickAction["input"] })}>
+                  <option value="any">{t("act.inputAny")}</option>
+                  <option value="text">{t("act.inputText")}</option>
+                  <option value="image">{t("act.inputImage")}</option>
+                </select>
+              </div>
+              <div className="field">
                 <label>{t("act.shortcut")}</label>
                 <HotkeyRecorder value={action.shortcut ?? ""} onChange={(sc) => patch({ shortcut: sc || undefined })} clearable placeholder={t("act.none")} />
               </div>

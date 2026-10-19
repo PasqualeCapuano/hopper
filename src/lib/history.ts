@@ -25,7 +25,8 @@ export async function listThreads(): Promise<Thread[]> {
 export async function upsertThread(thread: Thread): Promise<void> {
   const s = await store();
   const threads = ((await s.get<Thread[]>("threads")) ?? []).filter((t) => t.id !== thread.id);
-  threads.unshift(thread);
+  // Images are not kept: they would bloat the file and are only useful live.
+  threads.unshift({ ...thread, messages: thread.messages.map(({ image: _image, ...m }) => m) });
   await s.set("threads", threads.slice(0, MAX_THREADS));
   await s.save();
 }

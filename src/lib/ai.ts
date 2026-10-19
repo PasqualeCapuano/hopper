@@ -8,9 +8,11 @@ import { baseUrlFor, modelFor, systemPromptFor, type Settings } from "./settings
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+  /** PNG, base64 (no data: prefix), attached to a user message. */
+  image?: string;
 }
 
-export type AiErrorKind = "no-key" | "auth" | "rate-limit" | "offline" | "too-long" | "aborted" | "other";
+export type AiErrorKind = "no-key" | "auth" | "rate-limit" | "offline" | "too-long" | "no-vision" | "aborted" | "other";
 
 export class AiError extends Error {
   kind: AiErrorKind;
@@ -38,6 +40,7 @@ function mapError(err: unknown, settings?: Settings): AiError {
   if (err instanceof Anthropic.BadRequestError || err instanceof OpenAI.BadRequestError) {
     const msg = err.message || "";
     if (/too long|context|tokens/i.test(msg)) return new AiError("too-long", t("ai.tooLong"));
+    if (/image|vision|multimodal|content type/i.test(msg)) return new AiError("no-vision", msg);
     return new AiError("other", msg);
   }
   if (err instanceof Anthropic.APIConnectionError || err instanceof OpenAI.APIConnectionError) {
@@ -94,7 +97,11 @@ export async function* streamChat(
           max_tokens: 16000,
           system: systemPromptFor(settings),
           output_config: { effort: settings.effort },
-          messages,
+          messages: messages.map((m) =>
+            m.role === "user" && m.image
+              ? { role: "user" as const, content: [{ type: "image" as const, source: { type: "base64" as const, media_type: "image/png" as const, data: m.image } }, { type: "text" as const, text: m.content || "." }] }
+              : { role: m.role, content: m.content },
+          ),
         },
         { signal },
       );
@@ -114,7 +121,14 @@ export async function* streamChat(
     const stream = await client.chat.completions.create(
       {
         model,
-        messages: [{ role: "system", content: systemPromptFor(settings) }, ...messages],
+        messages: [
+          { role: "system", content: systemPromptFor(settings) },
+          ...messages.map((m) =>
+            m.role === "user" && m.image
+              ? { role: "user" as const, content: [{ type: "image_url" as const, image_url: { url: `data:image/png;base64,${m.image}` } }, { type: "text" as const, text: m.content || "." }] }
+              : { role: m.role, content: m.content },
+          ),
+        ],
         stream: true,
       },
       { signal },

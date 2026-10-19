@@ -16,6 +16,13 @@ Liquid glass: finestra trasparente con vibrancy nativa (crate `window-vibrancy`,
 - `enigo` → simula ⌘V / Ctrl+V per "Incolla nell'app" (su macOS serve il permesso Accessibilità)
 - SDK ufficiali `@anthropic-ai/sdk` e `openai`, chiamati dalla webview con streaming. Tutti i provider tranne Anthropic passano dall'SDK OpenAI con `baseURL` del provider (catalogo in `src/lib/providers.ts`): OpenAI, Ollama, LM Studio, OpenRouter, Gemini, Mistral, Groq, DeepSeek, endpoint personalizzato
 
+## Selezione, immagini e screenshot
+
+- **Selezione senza copiare**: alla hotkey `grab_selection` (Rust) aspetta che i modificatori siano rilasciati (`CGEventSourceFlagsState` su macOS, `GetAsyncKeyState` su Windows), simula ⌘C/Ctrl+C con enigo, legge la clipboard e la ripristina (testo o immagine). Se la clipboard non cambia, si usa il suo contenuto. Si disattiva con `set_prefs` (switch in Generale).
+- **Immagini**: il payload `popup-open` porta `image` (PNG base64) quando la clipboard contiene un'immagine e nessun testo, o dopo uno screenshot. `ChatMessage.image` viaggia come blocco immagine (Anthropic) o `image_url` data URL (OpenAI-compatibili). Le immagini non finiscono nella cronologia.
+- **Screenshot**: hotkey `shot` (default ⌥⇧Space / Ctrl+Alt+Space) → `take_screenshot`. macOS: `screencapture -i -x` su file temporaneo, con controllo `CGPreflightScreenCaptureAccess` e prompt `CGRequestScreenCaptureAccess`. Windows: `explorer.exe ms-screenclip:` e polling della clipboard finché compare l'immagine (fino a 90 s).
+- Le azioni rapide hanno `input: any | text | image`; il popup mostra solo quelle compatibili con ciò che contiene.
+
 ## Lingue
 
 Interfaccia in inglese di default, italiano selezionabile in Impostazioni › Generale. Stringhe con **i18next** (`react-i18next` nei componenti, `t()` di `src/lib/i18n.ts` nel codice non React): un file JSON per lingua in `src/locales/`, chiavi piatte (`popup.copy`). Per aggiungere una lingua: copia `en.json`, traducilo, registralo in `src/lib/i18n.ts` (`resources` e `LOCALES`). Seguono la lingua anche le azioni rapide di default (`src/lib/settings.ts`), la libreria (`src/lib/templates.ts`), il system prompt (`src/lib/profile.ts`) e il menu della tray (`set_tray_labels` in Rust).

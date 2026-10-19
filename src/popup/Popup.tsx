@@ -14,6 +14,7 @@ import { ACTION_ICONS } from "../lib/icons";
 import { applyTheme } from "../lib/theme";
 import { applyTrayLabels } from "../lib/tray";
 import {
+  actionAccepts,
   buildPrompt,
   loadSettings,
   modelFor,
@@ -26,7 +27,7 @@ type Screen = "idle" | "result" | "chat" | "error";
 type Notice = "copied" | "pasted" | null;
 
 interface PopupError {
-  kind: AiError["kind"] | "accessibility";
+  kind: AiError["kind"] | "accessibility" | "screen-recording";
   message: string;
   retryAfter?: number;
 }
@@ -50,6 +51,10 @@ export default function Popup() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [clip, setClip] = useState<string | null>(null);
+  /** PNG, base64: a screenshot or an image from the clipboard. */
+  const [image, setImage] = useState<string | null>(null);
+  const [imageSize, setImageSize] = useState<{ w: number; h: number } | null>(null);
+  const [fromShot, setFromShot] = useState(false);
   const [screen, setScreen] = useState<Screen>("idle");
   const [title, setTitle] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -75,10 +80,12 @@ export default function Popup() {
     void invoke("hide_popup");
   }, []);
 
-  const reset = useCallback((text: string | null) => {
+  const reset = useCallback((text: string | null, img: string | null = null) => {
     abortRef.current?.abort();
     threadRef.current = null;
     setClip(text);
+    setImage(img);
+    setImageSize(null);
     setScreen("idle");
     setTitle(null);
     setMessages([]);
@@ -101,9 +108,14 @@ export default function Popup() {
     });
     // Quiet update check at launch; failures (dev builds, offline) are ignored.
     void check().then((u) => { if (u) setUpdate(u); }).catch(() => {});
-    const unlistenOpen = listen<{ text: string | null; action: string | null }>("popup-open", (e) => {
+    const unlistenOpen = listen<{ text: string | null; image: string | null; action: string | null; error: string | null; shot: boolean }>("popup-open", (e) => {
       void loadSettings().then((s) => { setSettings(s); void applyTheme(s.theme); });
-      reset(e.payload.text);
+      reset(e.payload.text, e.payload.image);
+      setFromShot(e.payload.shot);
+      if (e.payload.error === "screen-recording") {
+        setError({ kind: "screen-recording", message: "" });
+        setScreen("error");
+      }
       setPendingAction(e.payload.action);
       setEntered(false);
       requestAnimationFrame(() => setEntered(true));
@@ -151,7 +163,9 @@ export default function Popup() {
 
       const thread = threadRef.current ?? newThread(clip, label);
       threadRef.current = thread;
-      const history: ChatMessage[] = [...messages, { role: "user", content: userText }];
+      // The image rides along with the first message of the thread only.
+      const first: ChatMessage = { role: "user", content: userText, ...(image && messages.length === 0 ? { image } : {}) };
+      const history: ChatMessage[] = [...messages, first];
       setMessages(history);
       setTitle(label);
       setScreen(nextScreen);
@@ -182,15 +196,18 @@ export default function Popup() {
         if (abortRef.current === controller) setBusy(false);
       }
     },
-    [settings, clip, messages, copyText, pasteText],
+    [settings, clip, image, messages, copyText, pasteText],
   );
+
+  const hasContent = !!clip || !!image;
+  const contentKind: "text" | "image" = image && !clip ? "image" : "text";
 
   const runAction = useCallback(
     (action: QuickAction) => {
-      if (!clip) return;
-      void run(buildPrompt(action.prompt, clip), action.label, action.output, "result");
+      if (!hasContent) return;
+      void run(buildPrompt(action.prompt, clip ?? ""), action.label, action.output, "result");
     },
-    [clip, run],
+    [hasContent, clip, run],
   );
 
   // A per-action global shortcut: run the action once the clipboard text is in place.
@@ -198,8 +215,8 @@ export default function Popup() {
     if (!pendingAction || !settings || screen !== "idle") return;
     const action = settings.actions.find((a) => a.id === pendingAction);
     setPendingAction(null);
-    if (action && clip) runAction(action);
-  }, [pendingAction, settings, clip, screen, runAction]);
+    if (action && hasContent) runAction(action);
+  }, [pendingAction, settings, hasContent, screen, runAction]);
 
   const sendFree = useCallback(() => {
     const text = draft.trim();
@@ -236,8 +253,8 @@ export default function Popup() {
         hide();
         return;
       }
-      if (screen === "idle" && !inInput && settings && clip && /^[1-9]$/.test(e.key)) {
-        const action = settings.actions[Number(e.key) - 1];
+      if (screen === "idle" && !inInput && settings && hasContent && /^[1-9]$/.test(e.key)) {
+        const action = settings.actions.filter((a) => actionAccepts(a, contentKind))[Number(e.key) - 1];
         if (action) runAction(action);
         return;
       }
@@ -249,7 +266,7 @@ export default function Popup() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [screen, settings, clip, busy, lastReply, hide, runAction, copyText, pasteText]);
+  }, [screen, settings, hasContent, contentKind, busy, lastReply, hide, runAction, copyText, pasteText]);
 
   const installUpdate = useCallback(async () => {
     if (!update || updating) return;
@@ -262,7 +279,7 @@ export default function Popup() {
     }
   }, [update, updating]);
 
-  const actions = settings?.actions.slice(0, 6) ?? [];
+  const actions = settings?.actions.filter((a) => actionAccepts(a, contentKind)).slice(0, 6) ?? [];
   const providerLabel = settings ? `${providerInfo(settings.provider).name} · ${modelFor(settings) || t("popup.noModel")}` : "…";
 
   return (
@@ -271,6 +288,7 @@ export default function Popup() {
         <div className="logo"><Icon d={ICON.logo} size={15} /></div>
         <div className="title">{title ?? t("popup.assistant")}</div>
         {screen !== "idle" && clip ? <div className="sub">· {t("popup.chars", { n: clip.length })}</div> : null}
+        {screen !== "idle" && !clip && image ? <div className="sub">· {fromShot ? t("popup.screenshot").toLowerCase() : t("popup.imageFromClipboard").toLowerCase()}</div> : null}
         <div className="spacer" data-tauri-drag-region />
         {screen === "idle" ? <div className="kbd">{prettyShortcut(settings?.hotkey ?? "")}</div> : null}
         <button className="icon-btn" aria-label={t("popup.settings")} onClick={() => void invoke("open_settings_cmd")}><Icon d={ICON.settings} /></button>
@@ -287,12 +305,20 @@ export default function Popup() {
               </div>
               <div className="clip-text">{clip}</div>
             </div>
+          ) : image ? (
+            <div className="clip">
+              <div className="clip-meta">
+                <span className="label">{fromShot ? t("popup.screenshot") : t("popup.imageFromClipboard")}</span>
+                {imageSize ? <span>{t("popup.imageSize", { w: imageSize.w, h: imageSize.h })}</span> : null}
+              </div>
+              <img className="clip-image" src={`data:image/png;base64,${image}`} alt="" onLoad={(e) => setImageSize({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
+            </div>
           ) : (
             <div className="clip empty">{t("popup.empty")}</div>
           )}
           <div className="actions">
             {actions.map((a, i) => (
-              <button key={a.id} className="action" disabled={!clip} onClick={() => runAction(a)}>
+              <button key={a.id} className="action" disabled={!hasContent} onClick={() => runAction(a)}>
                 <span className="action-icon"><Icon d={ACTION_ICONS[a.icon ?? ""] ?? ACTION_ICONS.sparkles} size={15} /></span>
                 <span>{a.label}</span>
                 <span className="num">{i + 1}</span>
@@ -307,7 +333,7 @@ export default function Popup() {
             <input
               ref={promptRef}
               className="text-input"
-              placeholder={clip ? t("popup.placeholderClip") : t("popup.placeholderAsk")}
+              placeholder={clip ? t("popup.placeholderClip") : image ? t("popup.placeholderImage") : t("popup.placeholderAsk")}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") sendFree(); }}
@@ -344,7 +370,7 @@ export default function Popup() {
       {screen === "chat" && (
         <>
           <div className="chat">
-            {clip ? <div className="ctx">{t("popup.ctx", { n: clip.length })}</div> : null}
+            {clip ? <div className="ctx">{t("popup.ctx", { n: clip.length })}</div> : image ? <div className="ctx">{t("popup.ctxImage")}</div> : null}
             {messages.map((m, i) => (
               <div key={i} className={m.role === "user" ? "msg-user" : "msg-ai"}>
                 {m.role === "user" ? m.content.split("\n\n---\n")[0] : m.content}
@@ -384,6 +410,26 @@ export default function Popup() {
               <div className="btn-row">
                 <button className="btn small primary" onClick={() => void invoke("accessibility_prompt")}>{t("err.acc.open")}</button>
                 <button className="btn small" onClick={() => setScreen(messages.length ? "result" : "idle")}>{t("err.acc.manual")}</button>
+              </div>
+            </div>
+          )}
+          {error.kind === "screen-recording" && (
+            <div className="error-card warn">
+              <div className="h">{t("err.screen.title")}</div>
+              <div className="p">{t("err.screen.msg")}</div>
+              <div className="btn-row">
+                <button className="btn small primary" onClick={() => void invoke("screen_recording_prompt")}>{t("err.screen.open")}</button>
+                <button className="btn small" onClick={hide}>{t("popup.close")}</button>
+              </div>
+            </div>
+          )}
+          {error.kind === "no-vision" && (
+            <div className="error-card">
+              <div className="h">{t("err.novision.title")}</div>
+              <div className="p">{t("err.novision.msg")}</div>
+              <div className="btn-row">
+                <button className="btn small primary" onClick={() => void invoke("open_settings_cmd")}>{t("err.auth.open")}</button>
+                <button className="btn small" onClick={() => setScreen("idle")}>{t("err.back")}</button>
               </div>
             </div>
           )}
