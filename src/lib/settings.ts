@@ -7,7 +7,7 @@ export type Provider = ProviderId;
 export type Effort = "low" | "medium" | "high";
 export type ActionOutput = "show" | "copy" | "paste";
 export type ActionInput = "any" | "text" | "image";
-const SCHEMA = 2;
+const SCHEMA = 3;
 
 export interface QuickAction {
   id: string;
@@ -150,9 +150,15 @@ export async function loadSettings(): Promise<Settings> {
   // Settings written by 0.1.x kept one model field per provider.
   if (saved.anthropicModel && !merged.models.anthropic) merged.models.anthropic = saved.anthropicModel;
   if (saved.openaiModel && !merged.models.openai) merged.models.openai = saved.openaiModel;
-  // 0.5 added image actions: give them to existing users once.
-  if ((saved.schema ?? 1) < 2 && saved.actions) {
-    const missing = defaultActions(locale).filter((d) => d.input === "image" && !merged.actions.some((a) => a.id === d.id));
+  // 0.5 added image actions: give them to existing users once, in the language
+  // their actions are written in (not necessarily the interface's), and bring
+  // built-ins that slipped in the other language back in line.
+  if ((saved.schema ?? 1) < 3 && saved.actions) {
+    const summarize = merged.actions.find((a) => a.id === "summarize");
+    const actionsLocale: Locale = summarize && defaultActions("it").some((d) => d.id === "summarize" && d.label === summarize.label) ? "it" : locale;
+    const other: Locale = actionsLocale === "it" ? "en" : "it";
+    merged.actions = translateDefaultActions(merged.actions, other, actionsLocale);
+    const missing = defaultActions(actionsLocale).filter((d) => d.input === "image" && !merged.actions.some((a) => a.id === d.id));
     merged.actions = [...merged.actions, ...missing];
   }
   merged.schema = SCHEMA;

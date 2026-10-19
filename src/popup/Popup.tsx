@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { LogicalSize } from "@tauri-apps/api/dpi";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
@@ -31,6 +32,11 @@ interface PopupError {
   message: string;
   retryAfter?: number;
 }
+
+const WIDTH = 560;
+const BASE_HEIGHT = 480;
+const MIN_HEIGHT = 300;
+const MAX_HEIGHT = 760;
 
 const ICON = {
   logo: "M5 16.5a7 7 0 0 1 14 0M4.5 19.2h.01M19.5 19.2h.01",
@@ -74,6 +80,7 @@ export default function Popup() {
   const promptRef = useRef<HTMLInputElement>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const hide = useCallback(() => {
     abortRef.current?.abort();
@@ -133,6 +140,29 @@ export default function Popup() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ block: "end" });
   }, [messages, partial]);
+
+  // Idle shows a variable amount (text, image, 2–3 rows of actions): size the
+  // window to the card. Every other screen gets the fixed height and fills it.
+  useEffect(() => {
+    const win = getCurrentWindow();
+    if (screen !== "idle") {
+      void win.setSize(new LogicalSize(WIDTH, BASE_HEIGHT)).catch(() => {});
+      return;
+    }
+    const el = rootRef.current;
+    if (!el) return;
+    let last = 0;
+    const fit = () => {
+      const h = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.ceil(el.getBoundingClientRect().height)));
+      if (h === last) return;
+      last = h;
+      void win.setSize(new LogicalSize(WIDTH, h)).catch(() => {});
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [screen, clip, image, imageSize, settings]);
 
   const copyText = useCallback(async (text: string) => {
     await writeText(text);
@@ -283,7 +313,7 @@ export default function Popup() {
   const providerLabel = settings ? `${providerInfo(settings.provider).name} · ${modelFor(settings) || t("popup.noModel")}` : "…";
 
   return (
-    <div className={"popup glass" + (entered ? " enter" : "")}>
+    <div ref={rootRef} className={"popup glass" + (entered ? " enter" : "") + (screen === "idle" ? " auto" : "")}>
       <div className="popup-header" data-tauri-drag-region>
         <div className="logo"><Icon d={ICON.logo} size={15} /></div>
         <div className="title">{title ?? t("popup.assistant")}</div>

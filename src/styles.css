@@ -134,6 +134,7 @@ input, textarea { caret-color: var(--accent); accent-color: var(--accent); }
 /* ---------- Popup ---------- */
 .popup {
   height: 100%;
+  box-sizing: border-box;
   border-radius: 22px;
   box-shadow: inset 0 1px 0 var(--glass-edge), var(--shadow);
   padding: 14px 16px 14px;
@@ -178,7 +179,10 @@ input, textarea { caret-color: var(--accent); accent-color: var(--accent); }
   box-shadow: inset 0 1px 0 var(--glass-edge-soft);
   padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
 }
-.clip-image { display: block; max-width: 100%; max-height: 180px; object-fit: contain; border-radius: 8px; margin: 0 auto; background: var(--surface-2, rgba(0,0,0,0.04)); }
+/* Idle: the window follows the content height (see Popup.tsx), so the card never overflows. */
+.popup.auto { height: auto; }
+.clip-image { display: block; max-width: 100%; max-height: 150px; object-fit: contain; border-radius: 8px; margin: 0 auto; border: 1px solid var(--hairline); }
+.clip:has(.clip-image) { gap: 8px; }
 .clip.empty { border-style: dashed; color: var(--muted); text-align: center; padding: 14px 12px; line-height: 18px; }
 .clip-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .clip-meta .label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; color: var(--accent-ink); }
