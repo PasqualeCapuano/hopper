@@ -188,7 +188,7 @@ input, textarea { caret-color: var(--accent); accent-color: var(--accent); }
 @keyframes dict-pulse { 0% { box-shadow: 0 0 0 0 var(--accent-glow); } 70% { box-shadow: 0 0 0 9px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @keyframes dict-blink { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 .dict-bars { display: flex; align-items: center; gap: 3px; height: 26px; flex-shrink: 0; }
-.dict-bar { width: 4px; border-radius: 2px; background: var(--accent); transition: height 70ms ease; }
+.dict-bar { width: 4px; height: 24px; border-radius: 2px; background: var(--accent); transform-origin: center; transition: transform 70ms ease; }
 .dict-text { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dict-hint { color: var(--muted); font-weight: 400; margin-left: 4px; }
 .dict-text.error { white-space: normal; font-weight: 500; line-height: 1.25; font-size: 12px; }

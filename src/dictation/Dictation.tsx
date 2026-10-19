@@ -48,7 +48,7 @@ export default function Dictation() {
       {state === "listening" ? (
         <div className="dict-bars" aria-hidden="true">
           {BAR_SHAPE.map((k, i) => (
-            <span key={i} className="dict-bar" style={{ height: `${4 + Math.min(1, level * 1.4) * 20 * k}px` }} />
+            <span key={i} className="dict-bar" style={{ transform: `scaleY(${(0.16 + Math.min(1, level * 1.4) * 0.84 * k).toFixed(3)})` }} />
           ))}
         </div>
       ) : null}
