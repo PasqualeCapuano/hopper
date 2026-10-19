@@ -24,8 +24,9 @@ trap 'rm -rf "$TMP"' EXIT
 echo "Scarico $(basename "$URL")…"
 curl -fsSL "$URL" -o "$TMP/Hopper.dmg"
 
-MNT=$(hdiutil attach "$TMP/Hopper.dmg" -nobrowse -quiet | grep -o '/Volumes/.*' | head -n 1)
-if [ -z "$MNT" ]; then
+MNT="$TMP/mnt"
+mkdir -p "$MNT"
+if ! hdiutil attach "$TMP/Hopper.dmg" -nobrowse -quiet -mountpoint "$MNT"; then
   echo "Impossibile montare il dmg." >&2
   exit 1
 fi
