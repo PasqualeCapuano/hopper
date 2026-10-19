@@ -12,6 +12,8 @@ export interface QuickAction {
   output: ActionOutput;
   /** Optional global shortcut that opens the popup and runs this action. */
   shortcut?: string;
+  /** Icon name from src/lib/icons.ts. */
+  icon?: string;
 }
 
 export interface Settings {
@@ -37,6 +39,7 @@ export const DEFAULT_ACTIONS: QuickAction[] = [
   {
     id: "translate",
     label: "Traduci in italiano",
+    icon: "globe",
     prompt:
       "Traduci il testo in italiano. Mantieni tono e formattazione. Rispondi solo con la traduzione.\n\n{{testo}}",
     output: "show",
@@ -44,6 +47,7 @@ export const DEFAULT_ACTIONS: QuickAction[] = [
   {
     id: "summarize",
     label: "Riassumi",
+    icon: "list",
     prompt:
       "Riassumi il testo in massimo 3 frasi, nella lingua del testo. Vai dritto al punto.\n\n{{testo}}",
     output: "show",
@@ -51,6 +55,7 @@ export const DEFAULT_ACTIONS: QuickAction[] = [
   {
     id: "reply",
     label: "Rispondi",
+    icon: "reply",
     prompt:
       "Scrivi una risposta a questo messaggio nella stessa lingua del testo. Tono cordiale e diretto, massimo 5 righe. Rispondi solo con il testo della risposta.\n\n{{testo}}",
     output: "show",
@@ -58,6 +63,7 @@ export const DEFAULT_ACTIONS: QuickAction[] = [
   {
     id: "fix",
     label: "Correggi",
+    icon: "check",
     prompt:
       "Correggi errori di grammatica, ortografia e punteggiatura senza cambiare il significato o il tono. Rispondi solo con il testo corretto.\n\n{{testo}}",
     output: "show",
@@ -65,6 +71,7 @@ export const DEFAULT_ACTIONS: QuickAction[] = [
   {
     id: "explain",
     label: "Spiega",
+    icon: "bulb",
     prompt:
       "Spiega questo testo in modo semplice e breve, in italiano. Se contiene richieste o scadenze, elencale.\n\n{{testo}}",
     output: "show",

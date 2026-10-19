@@ -9,15 +9,14 @@ import { AiError, listModels, testConnection } from "../lib/ai";
 import { PROVIDERS, providerInfo } from "../lib/providers";
 import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import HotkeyRecorder from "./HotkeyRecorder";
+import ActionsTab from "./ActionsTab";
 import { deleteSecret, getSecret, setSecret } from "../lib/secrets";
 import {
   ANTHROPIC_MODELS,
-  DEFAULT_ACTIONS,
   loadSettings,
   modelFor,
   saveSettings,
   type Provider,
-  type QuickAction,
   type Settings as SettingsModel,
 } from "../lib/settings";
 
@@ -342,88 +341,6 @@ function HotkeyTab({ s, update }: { s: SettingsModel; update: (p: Partial<Settin
       <div className="field">
         <label>Nel popup</label>
         <div className="help">1–6 lancia un'azione rapida · ↵ invia o copia · ⌘↵ incolla nell'app · Esc chiude.</div>
-      </div>
-    </>
-  );
-}
-
-function ActionsTab({ s, update }: { s: SettingsModel; update: (p: Partial<SettingsModel>) => void }) {
-  const [selected, setSelected] = useState(0);
-  const action = s.actions[selected];
-
-  const patch = (p: Partial<QuickAction>) => {
-    const actions = s.actions.map((a, i) => (i === selected ? { ...a, ...p } : a));
-    update({ actions });
-  };
-  const add = () => {
-    const a: QuickAction = { id: `custom-${Date.now()}`, label: "Nuova azione", prompt: "…\n\n{{testo}}", output: "show" };
-    update({ actions: [...s.actions, a] });
-    setSelected(s.actions.length);
-  };
-  const remove = () => {
-    const actions = s.actions.filter((_, i) => i !== selected);
-    update({ actions });
-    setSelected(Math.max(0, selected - 1));
-  };
-  const move = (dir: -1 | 1) => {
-    const j = selected + dir;
-    if (j < 0 || j >= s.actions.length) return;
-    const actions = [...s.actions];
-    [actions[selected], actions[j]] = [actions[j], actions[selected]];
-    update({ actions });
-    setSelected(j);
-  };
-
-  return (
-    <>
-      <div>
-        <h1>Azioni rapide</h1>
-        <div className="lead">Le prime 6 compaiono nel popup, con i tasti 1–6. Il prompt riceve il testo copiato al posto di {"{{testo}}"}.</div>
-      </div>
-      <div className="actions-layout">
-        <div className="actions-list">
-          {s.actions.map((a, i) => (
-            <button key={a.id} className={i === selected ? "active" : ""} onClick={() => setSelected(i)}>
-              <span>{a.label}</span>
-              {i < 6 ? <span className="num">{i + 1}</span> : null}
-            </button>
-          ))}
-          <div className="btn-row">
-            <button className="btn small" onClick={add}>+ Nuova</button>
-            <button className="btn small" onClick={() => update({ actions: DEFAULT_ACTIONS })}>Ripristina</button>
-          </div>
-        </div>
-        {action ? (
-          <div className="actions-editor">
-            <div className="field">
-              <label htmlFor="al">Nome</label>
-              <input id="al" value={action.label} onChange={(e) => patch({ label: e.target.value })} />
-            </div>
-            <div className="field">
-              <label htmlFor="ap">Prompt</label>
-              <textarea id="ap" rows={7} className="mono" value={action.prompt} onChange={(e) => patch({ prompt: e.target.value })} />
-            </div>
-            <div className="field">
-              <label>Scorciatoia globale</label>
-              <HotkeyRecorder value={action.shortcut ?? ""} onChange={(sc) => patch({ shortcut: sc || undefined })} clearable placeholder="Nessuna" />
-              <div className="help">Premila in qualsiasi app: apre il popup ed esegue questa azione sul testo copiato. Attiva dopo Salva.</div>
-            </div>
-            <div className="field">
-              <label htmlFor="ao">Dopo la risposta</label>
-              <select id="ao" value={action.output} onChange={(e) => patch({ output: e.target.value as QuickAction["output"] })}>
-                <option value="show">Mostra nel popup</option>
-                <option value="copy">Copia subito</option>
-                <option value="paste">Incolla subito nell'app</option>
-              </select>
-            </div>
-            <div className="btn-row">
-              <button className="btn small danger" onClick={remove}>Elimina</button>
-              <div className="spacer" />
-              <button className="btn small" onClick={() => move(-1)}>↑ Su</button>
-              <button className="btn small" onClick={() => move(1)}>↓ Giù</button>
-            </div>
-          </div>
-        ) : null}
       </div>
     </>
   );

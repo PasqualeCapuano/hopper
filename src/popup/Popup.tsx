@@ -9,6 +9,7 @@ import { AiError, streamChat, type ChatMessage } from "../lib/ai";
 import { newThread, upsertThread, type Thread } from "../lib/history";
 import { providerInfo } from "../lib/providers";
 import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
+import { ACTION_ICONS } from "../lib/icons";
 import {
   buildPrompt,
   loadSettings,
@@ -286,11 +287,13 @@ export default function Popup() {
           <div className="actions">
             {actions.map((a, i) => (
               <button key={a.id} className="action" disabled={!clip} onClick={() => runAction(a)}>
+                <span className="action-icon"><Icon d={ACTION_ICONS[a.icon ?? ""] ?? ACTION_ICONS.sparkles} size={15} /></span>
                 <span>{a.label}</span>
                 <span className="num">{i + 1}</span>
               </button>
             ))}
             <button className="action" onClick={openChat}>
+              <span className="action-icon"><Icon d={ACTION_ICONS.chat} size={15} /></span>
               <span>Chat libera</span>
             </button>
           </div>
