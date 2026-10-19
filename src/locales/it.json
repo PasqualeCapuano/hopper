@@ -324,5 +324,6 @@
   "dict.test": "Prova il microfono (3 s)",
   "dict.testing": "Parla adesso…",
   "dict.testOk": "Suono registrato",
-  "dict.testSilent": "Silenzio"
+  "dict.testSilent": "Silenzio",
+  "dict.noAccessibility": "Trascritto e copiato negli appunti. Per scriverlo al posto tuo Hopper ha bisogno di Accessibilità: Impostazioni di Sistema › Privacy e sicurezza › Accessibilità."
 }

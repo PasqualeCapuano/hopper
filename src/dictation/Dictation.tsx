@@ -42,7 +42,7 @@ export default function Dictation() {
 
   const errorText = message?.startsWith("no-audio:")
     ? t("dict.noAudioFrom", { device: message.slice("no-audio:".length) })
-    : message === "no-audio" ? t("dict.noAudio") : message === "no-mic" ? t("dict.noMic") : message;
+    : message === "no-audio" ? t("dict.noAudio") : message === "no-mic" ? t("dict.noMic") : message === "no-accessibility" ? t("dict.noAccessibility") : message;
 
   return (
     <div className="dict glass">

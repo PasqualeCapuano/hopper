@@ -365,6 +365,13 @@ pub fn dictation_done(app: AppHandle, error: Option<String>) {
 /// Types `text` where the cursor is (clipboard + paste shortcut) and restores the clipboard.
 #[tauri::command]
 pub fn dictation_insert(app: AppHandle, text: String) -> Result<(), String> {
+    // Without Accessibility we cannot press Cmd+V: leave the text on the clipboard
+    // and let the overlay explain, instead of macOS throwing its dialog each time.
+    if !crate::accessibility_granted() {
+        app.clipboard().write_text(text).map_err(|e| e.to_string())?;
+        crate::accessibility_prompt();
+        return Err("no-accessibility".into());
+    }
     let before_text = app.clipboard().read_text().ok();
     let before_image = if before_text.is_none() { app.clipboard().read_image().ok().map(|i| i.to_owned()) } else { None };
     app.clipboard().write_text(text).map_err(|e| e.to_string())?;
