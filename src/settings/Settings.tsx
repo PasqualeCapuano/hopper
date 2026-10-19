@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { check } from "@tauri-apps/plugin-updater";
@@ -39,6 +40,11 @@ export default function Settings() {
   const [saved, setSaved] = useState(false);
   const [pendingKey, setPendingKey] = useState<{ provider: Provider; key: string } | null>(null);
   const [keyVersion, setKeyVersion] = useState(0);
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    void getVersion().then(setVersion).catch(() => {});
+  }, []);
 
   useEffect(() => {
     void loadSettings().then(setS);
@@ -70,7 +76,7 @@ export default function Settings() {
         <button className={tab === "hotkey" ? "active" : ""} onClick={() => setTab("hotkey")}>Scorciatoie</button>
         <button className={tab === "actions" ? "active" : ""} onClick={() => setTab("actions")}>Azioni rapide</button>
         <button className={tab === "general" ? "active" : ""} onClick={() => setTab("general")}>Generale</button>
-        <div className="version">Hopper v0.1.0</div>
+        <div className="version">Hopper {version ? `v${version}` : ""}</div>
       </nav>
       <main className="settings-main">
         {tab === "account" && <AccountTab key={keyVersion} s={s} update={update} onPendingKey={setPendingKey} />}
