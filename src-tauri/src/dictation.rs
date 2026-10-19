@@ -227,7 +227,8 @@ fn push(buf: &Mutex<Vec<f32>>, app: &AppHandle, meter: &Mutex<Instant>, data: &[
     if n > 0 && last.elapsed() >= Duration::from_millis(50) {
         *last = Instant::now();
         let rms = (sum / n as f32).sqrt();
-        let _ = app.emit_to("dictation", "dictation-level", LevelPayload { level: (rms * 6.0).min(1.0) });
+        // Every window: the overlay pill while dictating, the Settings page during the mic test.
+        let _ = app.emit("dictation-level", LevelPayload { level: (rms * 6.0).min(1.0) });
     }
 }
 

@@ -325,5 +325,6 @@
   "dict.testing": "Speak now…",
   "dict.testOk": "Sound captured",
   "dict.testSilent": "Silence",
-  "dict.noAccessibility": "Transcribed and copied to the clipboard. To type it for you, Hopper needs Accessibility: System Settings › Privacy & Security › Accessibility."
+  "dict.noAccessibility": "Transcribed and copied to the clipboard. To type it for you, Hopper needs Accessibility: System Settings › Privacy & Security › Accessibility.",
+  "dict.testHearing": "I hear you, keep talking…"
 }

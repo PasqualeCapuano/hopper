@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
 import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import { providerInfo } from "../lib/providers";
@@ -7,6 +8,8 @@ import { getSecret } from "../lib/secrets";
 import { STT_MODELS } from "../lib/dictation";
 import type { DictationSettings, Settings, SttProvider } from "../lib/settings";
 import HotkeyRecorder from "./HotkeyRecorder";
+
+const METER_SHAPE = [0.35, 0.6, 0.85, 1, 0.85, 1, 0.7, 0.9, 0.6, 0.4, 0.75, 0.5];
 
 const PROVIDERS: { id: SttProvider; hint: string }[] = [
   { id: "groq", hint: "dict.groqHint" },
@@ -21,6 +24,20 @@ export default function DictationTab({ s, update }: { s: Settings; update: (p: P
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [mics, setMics] = useState<string[]>([]);
   const [test, setTest] = useState<{ busy: boolean; text: string; ok?: boolean } | null>(null);
+  const [level, setLevel] = useState(0);
+  const [peakSeen, setPeakSeen] = useState(0);
+
+  // Live level while the test records, so the bars move as you speak.
+  useEffect(() => {
+    if (!test?.busy) return;
+    setLevel(0);
+    setPeakSeen(0);
+    const un = listen<{ level: number }>("dictation-level", (e) => {
+      setLevel(e.payload.level);
+      setPeakSeen((p) => Math.max(p, e.payload.level));
+    });
+    return () => { void un.then((f) => f()); };
+  }, [test?.busy]);
 
   const testMic = async () => {
     setTest({ busy: true, text: t("dict.testing") });
@@ -106,7 +123,14 @@ export default function DictationTab({ s, update }: { s: Settings; update: (p: P
         </div>
         <div className="btn-row">
           <button className="btn small" onClick={() => void testMic()} disabled={test?.busy}>{t("dict.test")}</button>
-          {test ? <span className={test.busy ? "help" : test.ok ? "inline-ok" : "inline-err"}>{test.text}</span> : null}
+          {test?.busy ? (
+            <div className={"mic-meter" + (peakSeen > 0.05 ? " live" : "")} aria-hidden="true">
+              {METER_SHAPE.map((k, i) => (
+                <span key={i} className="dict-bar" style={{ transform: `scaleY(${(0.12 + Math.min(1, level * 1.4) * 0.88 * k).toFixed(3)})` }} />
+              ))}
+            </div>
+          ) : null}
+          {test ? <span className={test.busy ? (peakSeen > 0.05 ? "inline-ok" : "help") : test.ok ? "inline-ok" : "inline-err"}>{test.busy && peakSeen > 0.05 ? t("dict.testHearing") : test.text}</span> : null}
         </div>
       </section>
 

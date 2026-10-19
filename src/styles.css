@@ -189,6 +189,9 @@ input, textarea { caret-color: var(--accent); accent-color: var(--accent); }
 @keyframes dict-blink { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 .dict-bars { display: flex; align-items: center; gap: 3px; height: 26px; flex-shrink: 0; }
 .dict-bar { width: 4px; height: 24px; border-radius: 2px; background: var(--accent); transform-origin: center; transition: transform 70ms ease; }
+.mic-meter { display: flex; align-items: center; gap: 3px; height: 28px; padding: 0 6px; border-radius: 10px; background: var(--glass-2); border: 1px solid var(--hairline); }
+.mic-meter .dict-bar { background: var(--muted); transition: transform 70ms ease, background 200ms ease; }
+.mic-meter.live .dict-bar { background: var(--accent); }
 .dict-text { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dict-hint { color: var(--muted); font-weight: 400; margin-left: 4px; }
 .dict-text.error { white-space: normal; font-weight: 500; line-height: 1.25; font-size: 12px; }
