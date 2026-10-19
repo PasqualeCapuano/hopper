@@ -26,7 +26,7 @@ curl -fsSL "$URL" -o "$TMP/Hopper.dmg"
 
 MNT="$TMP/mnt"
 mkdir -p "$MNT"
-if ! hdiutil attach "$TMP/Hopper.dmg" -nobrowse -quiet -mountpoint "$MNT"; then
+if ! hdiutil attach "$TMP/Hopper.dmg" -nobrowse -quiet -mountpoint "$MNT" < /dev/null; then
   echo "Impossibile montare il dmg." >&2
   exit 1
 fi
