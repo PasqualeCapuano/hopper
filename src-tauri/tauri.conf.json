@@ -41,6 +41,18 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "minimumSystemVersion": "12.0"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDMyRkY3MEFDMDk1NzA4MUMKUldRY0NGY0pySEQvTWs5TTVEMHBZUUlxdzlKcE1pdldVbnRjazNlM29iNWdPN1F1czlYNEIzUjgK",
+      "endpoints": [
+        "https://github.com/PasqualeCapuano/hopper/releases/latest/download/latest.json"
+      ]
+    }
   }
 }

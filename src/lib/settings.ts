@@ -73,7 +73,7 @@ export const DEFAULT_SETTINGS: Settings = {
   effort: "medium",
   systemPrompt:
     "Sei un assistente personale che lavora dentro un popup di sistema. Rispondi in modo diretto, senza preamboli né formule di cortesia inutili. Rispondi in italiano salvo che il testo o la richiesta siano in un'altra lingua.",
-  hotkey: "Alt+Space",
+  hotkey: navigator.userAgent.includes("Mac") ? "Alt+Space" : "Ctrl+Shift+Space",
   autostart: false,
   actions: DEFAULT_ACTIONS,
 };

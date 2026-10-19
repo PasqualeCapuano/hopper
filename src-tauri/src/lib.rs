@@ -7,7 +7,10 @@ use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 const KEYRING_SERVICE: &str = "com.pasqualecapuano.hopper";
+#[cfg(target_os = "macos")]
 const DEFAULT_HOTKEY: &str = "Alt+Space";
+#[cfg(not(target_os = "macos"))]
+const DEFAULT_HOTKEY: &str = "Ctrl+Shift+Space";
 
 #[derive(Clone, Serialize)]
 struct PopupPayload {
@@ -142,21 +145,19 @@ fn show_popup(app: &AppHandle) {
         .filter(|t| !t.trim().is_empty());
 
     if let Some(win) = app.get_webview_window("main") {
-        // Place the popup near the cursor, kept inside the monitor the cursor is on.
+        // Centre the popup on the monitor the cursor is on, slightly above the middle
+        // (Spotlight-style). The user can then drag it from the header.
         if let Ok(cursor) = app.cursor_position() {
-            let size = win
-                .outer_size()
-                .unwrap_or(tauri::PhysicalSize::new(1120, 960));
-            let (mut x, mut y) = (cursor.x - size.width as f64 / 2.0, cursor.y + 16.0);
             if let Ok(Some(monitor)) = app.monitor_from_point(cursor.x, cursor.y) {
+                let size = win
+                    .outer_size()
+                    .unwrap_or(tauri::PhysicalSize::new(1120, 960));
                 let mp = monitor.position();
                 let ms = monitor.size();
-                let max_x = mp.x as f64 + ms.width as f64 - size.width as f64 - 8.0;
-                let max_y = mp.y as f64 + ms.height as f64 - size.height as f64 - 8.0;
-                x = x.max(mp.x as f64 + 8.0).min(max_x);
-                y = y.max(mp.y as f64 + 8.0).min(max_y);
+                let x = mp.x as f64 + (ms.width as f64 - size.width as f64) / 2.0;
+                let y = mp.y as f64 + (ms.height as f64 - size.height as f64) * 0.38;
+                let _ = win.set_position(PhysicalPosition::new(x, y));
             }
-            let _ = win.set_position(PhysicalPosition::new(x, y));
         }
         let _ = win.show();
         let _ = win.set_focus();
@@ -209,6 +210,8 @@ fn set_hotkey(app: AppHandle, hotkey: String) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_autostart::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())

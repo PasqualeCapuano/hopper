@@ -20,7 +20,25 @@ Liquid glass: finestra trasparente con vibrancy nativa (crate `window-vibrancy`,
 
 Niente OAuth degli abbonamenti Claude Pro/Max o ChatGPT Plus: non è permesso alle app di terze parti. Si usa una API key a consumo. Con Claude Max hai crediti API mensili inclusi (100 $ su Max 5x, 200 $ su Max 20x), richiedibili da console.anthropic.com.
 
-## Avvio
+## Installazione
+
+**macOS** (Apple Silicon e Intel): scarica il `.dmg` dall'[ultima release](https://github.com/PasqualeCapuano/hopper/releases/latest) e trascina Hopper in Applicazioni. Oppure da terminale:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/PasqualeCapuano/hopper/main/install.sh | sh
+```
+
+**Windows**: scarica il `-setup.exe` dall'ultima release. Oppure da PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/PasqualeCapuano/hopper/main/install.ps1 | iex
+```
+
+I build non sono ancora firmati: macOS mostra "sviluppatore non identificato" (lo script di installazione lo risolve), Windows mostra l'avviso SmartScreen (Ulteriori informazioni → Esegui comunque). Gli aggiornamenti successivi arrivano dall'app stessa.
+
+Hotkey di default: ⌥ Space su macOS, Ctrl+Shift+Space su Windows. Si cambia nelle impostazioni.
+
+## Sviluppo
 
 ```bash
 npm install
@@ -48,5 +66,10 @@ src/lib/history.ts          ultimi 30 thread in locale
 
 - Rifinire l'icona (generata da `python3 scripts/make-icon.py`, poi `npm run tauri icon src-tauri/icons/hopper-source.png`)
 - Firma e notarizzazione macOS, firma Windows
+- Homebrew tap e winget
+
+## Release
+
+Ogni tag `vX.Y.Z` fa partire `.github/workflows/release.yml`, che compila su macOS (universal) e Windows, pubblica gli installer nella Release e il `latest.json` letto dall'updater. Prima di taggare, aggiorna `version` in `src-tauri/tauri.conf.json` e `package.json`. La chiave che firma gli aggiornamenti è in `~/.tauri/hopper.key` (non perderla) e nel secret `TAURI_SIGNING_PRIVATE_KEY` della repo.
 - Cronologia thread visibile nel popup (oggi è solo salvata)
 - Rilevare l'app di origine del testo copiato

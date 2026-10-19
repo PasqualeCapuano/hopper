@@ -1,0 +1,72 @@
+name: Release
+
+# Builds and publishes installers for macOS (universal) and Windows whenever a
+# version tag is pushed, e.g. `git tag v0.1.0 && git push origin v0.1.0`.
+# Also publishes latest.json for the in-app updater.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "Hopper ${{ github.ref_name }}"
+          releaseBody: |
+            ## Install
+
+            **macOS** (Apple Silicon and Intel): download the `.dmg`, drag Hopper to Applications.
+            Or from the terminal:
+
+            ```sh
+            curl -fsSL https://raw.githubusercontent.com/PasqualeCapuano/hopper/main/install.sh | sh
+            ```
+
+            **Windows**: download the `-setup.exe`. Or from PowerShell:
+
+            ```powershell
+            irm https://raw.githubusercontent.com/PasqualeCapuano/hopper/main/install.ps1 | iex
+            ```
+
+            Builds are not yet code-signed: macOS shows "unidentified developer" (the install script clears it), Windows shows a SmartScreen notice (More info → Run anyway).
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}

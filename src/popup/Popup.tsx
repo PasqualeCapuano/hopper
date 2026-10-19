@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { check, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { AiError, streamChat, type ChatMessage } from "../lib/ai";
 import { newThread, upsertThread, type Thread } from "../lib/history";
 import {
@@ -60,6 +62,8 @@ export default function Popup() {
   const [notice, setNotice] = useState<Notice>(null);
   const [error, setError] = useState<PopupError | null>(null);
   const [entered, setEntered] = useState(false);
+  const [update, setUpdate] = useState<Update | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const threadRef = useRef<Thread | null>(null);
@@ -89,7 +93,13 @@ export default function Popup() {
 
   // Window plumbing: open event from the hotkey/tray, hide on blur.
   useEffect(() => {
-    void loadSettings().then(setSettings);
+    void loadSettings().then((s) => {
+      setSettings(s);
+      // The hotkey saved in Settings must win over the compiled-in default.
+      void invoke("set_hotkey", { hotkey: s.hotkey }).catch(() => {});
+    });
+    // Quiet update check at launch; failures (dev builds, offline) are ignored.
+    void check().then((u) => { if (u) setUpdate(u); }).catch(() => {});
     const unlistenOpen = listen<{ text: string | null }>("popup-open", (e) => {
       void loadSettings().then(setSettings);
       reset(e.payload.text);
@@ -230,6 +240,17 @@ export default function Popup() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [screen, settings, clip, busy, lastReply, hide, runAction, copyText, pasteText]);
+
+  const installUpdate = useCallback(async () => {
+    if (!update || updating) return;
+    setUpdating(true);
+    try {
+      await update.downloadAndInstall();
+      await relaunch();
+    } catch {
+      setUpdating(false);
+    }
+  }, [update, updating]);
 
   const actions = settings?.actions.slice(0, 6) ?? [];
   const providerLabel = settings ? (settings.provider === "anthropic" ? "Claude" : "OpenAI") + " · " + modelFor(settings) : "…";
@@ -416,6 +437,11 @@ export default function Popup() {
 
       <div className="footer">
         <span className="pill"><span className="dot" />{providerLabel}</span>
+        {update ? (
+          <button className="pill update" onClick={() => void installUpdate()} disabled={updating}>
+            {updating ? "Aggiorno…" : `v${update.version} disponibile · Installa`}
+          </button>
+        ) : null}
         <div className="spacer" />
         <span className="hint">
           {screen === "idle" ? "1–6 azione · ↵ invia · esc chiudi" : screen === "result" ? "↵ copia · ⌘↵ incolla · esc chiudi" : "↵ invia · esc chiudi"}
