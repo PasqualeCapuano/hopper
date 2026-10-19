@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { getSecret } from "./secrets";
 import { providerInfo } from "./providers";
-import { baseUrlFor, modelFor, type Settings } from "./settings";
+import { baseUrlFor, modelFor, systemPromptFor, type Settings } from "./settings";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -91,7 +91,7 @@ export async function* streamChat(
         {
           model,
           max_tokens: 16000,
-          system: settings.systemPrompt,
+          system: systemPromptFor(settings),
           output_config: { effort: settings.effort },
           messages,
         },
@@ -113,7 +113,7 @@ export async function* streamChat(
     const stream = await client.chat.completions.create(
       {
         model,
-        messages: [{ role: "system", content: settings.systemPrompt }, ...messages],
+        messages: [{ role: "system", content: systemPromptFor(settings) }, ...messages],
         stream: true,
       },
       { signal },

@@ -7,6 +7,7 @@ import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import HotkeyRecorder from "./HotkeyRecorder";
 import ActionsTab from "./ActionsTab";
 import GeneralTab from "./GeneralTab";
+import ProfileTab from "./ProfileTab";
 import { applyTheme } from "../lib/theme";
 import { deleteSecret, getSecret, setSecret } from "../lib/secrets";
 import {
@@ -18,7 +19,7 @@ import {
   type Settings as SettingsModel,
 } from "../lib/settings";
 
-type Tab = "account" | "hotkey" | "actions" | "general";
+type Tab = "account" | "profile" | "hotkey" | "actions" | "general";
 
 export default function Settings() {
   const [tab, setTab] = useState<Tab>("account");
@@ -63,6 +64,7 @@ export default function Settings() {
       <nav className="settings-nav">
         <div className="label">IMPOSTAZIONI</div>
         <button className={tab === "account" ? "active" : ""} onClick={() => setTab("account")}>Account e modello</button>
+        <button className={tab === "profile" ? "active" : ""} onClick={() => setTab("profile")}>Il tuo assistente</button>
         <button className={tab === "hotkey" ? "active" : ""} onClick={() => setTab("hotkey")}>Scorciatoie</button>
         <button className={tab === "actions" ? "active" : ""} onClick={() => setTab("actions")}>Azioni rapide</button>
         <button className={tab === "general" ? "active" : ""} onClick={() => setTab("general")}>Generale</button>
@@ -70,6 +72,7 @@ export default function Settings() {
       </nav>
       <main className="settings-main">
         {tab === "account" && <AccountTab key={keyVersion} s={s} update={update} onPendingKey={setPendingKey} />}
+        {tab === "profile" && <ProfileTab s={s} update={update} />}
         {tab === "hotkey" && <HotkeyTab s={s} update={update} />}
         {tab === "actions" && <ActionsTab s={s} update={update} />}
         {tab === "general" && <GeneralTab s={s} update={update} />}
@@ -286,11 +289,6 @@ function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p:
             </select>
           </div>
         ) : null}
-      </div>
-      <div className="field">
-        <label htmlFor="sys">Istruzioni per il tuo agente</label>
-        <textarea id="sys" rows={4} value={s.systemPrompt} onChange={(e) => update({ systemPrompt: e.target.value })} />
-        <div className="help">Vale per ogni richiesta: chi sei, lingua, tono.</div>
       </div>
     </>
   );

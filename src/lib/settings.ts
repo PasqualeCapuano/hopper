@@ -1,5 +1,6 @@
 import { load, type Store } from "@tauri-apps/plugin-store";
 import { providerInfo, type ProviderId } from "./providers";
+import { composeSystemPrompt, DEFAULT_PROFILE, type Profile } from "./profile";
 
 export type Provider = ProviderId;
 export type Effort = "low" | "medium" | "high";
@@ -23,7 +24,8 @@ export interface Settings {
   /** Base URL for the "custom" provider. */
   customBaseUrl: string;
   effort: Effort;
-  systemPrompt: string;
+  /** Structured description of the user; see systemPromptFor(). */
+  profile: Profile;
   hotkey: string;
   autostart: boolean;
   theme: "system" | "light" | "dark";
@@ -84,8 +86,7 @@ export const DEFAULT_SETTINGS: Settings = {
   models: {},
   customBaseUrl: "",
   effort: "medium",
-  systemPrompt:
-    "Sei un assistente personale che lavora dentro un popup di sistema. Rispondi in modo diretto, senza preamboli né formule di cortesia inutili. Rispondi in italiano salvo che il testo o la richiesta siano in un'altra lingua.",
+  profile: DEFAULT_PROFILE,
   hotkey: navigator.userAgent.includes("Mac") ? "Alt+Space" : "Ctrl+Shift+Space",
   autostart: false,
   theme: "system",
@@ -103,8 +104,12 @@ function store(): Promise<Store> {
 
 export async function loadSettings(): Promise<Settings> {
   const s = await store();
-  const saved = (await s.get<Partial<Settings> & { anthropicModel?: string; openaiModel?: string }>("settings")) ?? {};
-  const merged: Settings = { ...DEFAULT_SETTINGS, ...saved, models: { ...(saved.models ?? {}) } };
+  const saved = (await s.get<Partial<Settings> & { anthropicModel?: string; openaiModel?: string; systemPrompt?: string }>("settings")) ?? {};
+  const merged: Settings = { ...DEFAULT_SETTINGS, ...saved, models: { ...(saved.models ?? {}) }, profile: { ...DEFAULT_PROFILE, ...(saved.profile ?? {}) } };
+  // Settings written before 0.4 had a free-form system prompt: keep it as extra instructions.
+  if (!saved.profile && saved.systemPrompt && !saved.systemPrompt.startsWith("Sei un assistente personale che lavora dentro un popup")) {
+    merged.profile.extra = saved.systemPrompt;
+  }
   // Settings written by 0.1.x kept one model field per provider.
   if (saved.anthropicModel && !merged.models.anthropic) merged.models.anthropic = saved.anthropicModel;
   if (saved.openaiModel && !merged.models.openai) merged.models.openai = saved.openaiModel;
@@ -130,4 +135,8 @@ export function baseUrlFor(settings: Settings): string | null {
   const info = providerInfo(settings.provider);
   if (info.id === "custom") return settings.customBaseUrl.trim() || null;
   return info.baseURL;
+}
+
+export function systemPromptFor(settings: Settings): string {
+  return composeSystemPrompt(settings.profile);
 }

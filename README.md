@@ -86,7 +86,7 @@ Drag the popup by its header to move it. It opens centred on the screen you are 
 
 **Quick actions** live in Settings → Quick actions. Each one is a prompt where `{{testo}}` stands for the copied text. You can choose what happens after the answer: show it, copy it right away, or paste it right away. The first six appear in the popup.
 
-**Instructions for your assistant** (Settings → Account) apply to every request: who you are, which language you want, what tone. Hopper's default replies in Italian unless the text is in another language; change it to whatever suits you.
+**Your assistant** (Settings → Il tuo assistente) shapes every reply with a few choices instead of a prompt to write: your name and what you do, the language of the answers (same as the text, or a fixed one), tone (direct, warm, formal, casual), length, and the signature for messages written on your behalf. A free field is there for anything else it should know.
 
 **Paste back** on macOS needs the Accessibility permission, because Hopper has to press ⌘V on your behalf. macOS asks once, the first time you use it. Everything else works without it.
 
