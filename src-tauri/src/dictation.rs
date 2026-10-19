@@ -23,6 +23,33 @@ pub struct Inner {
     pub toggle: bool,
     /// The hotkey is physically down: later Pressed events are key repeats.
     key_down: bool,
+    /// Microphone name chosen in Settings; `None` = system default.
+    pub device: Option<String>,
+}
+
+/// Input devices the user can pick from, in the host's order.
+#[tauri::command]
+pub fn list_microphones() -> Vec<String> {
+    let host = cpal::default_host();
+    host.input_devices()
+        .map(|it| it.filter_map(|d| d.name().ok()).collect())
+        .unwrap_or_default()
+}
+
+/// The chosen device if it is still around, otherwise the system default.
+fn pick_device(app: &AppHandle) -> Result<(cpal::Device, String), String> {
+    let host = cpal::default_host();
+    let wanted = app.state::<Dictation>().0.lock().unwrap().device.clone();
+    if let Some(name) = wanted.filter(|n| !n.is_empty()) {
+        if let Ok(mut devices) = host.input_devices() {
+            if let Some(d) = devices.find(|d| d.name().ok().as_deref() == Some(name.as_str())) {
+                return Ok((d, name));
+            }
+        }
+    }
+    let d = host.default_input_device().ok_or("no-mic")?;
+    let name = d.name().unwrap_or_else(|_| "default".into());
+    Ok((d, name))
 }
 
 #[derive(Clone, Serialize)]
@@ -136,9 +163,8 @@ pub fn stop(app: &AppHandle) {
 }
 
 /// Mono samples at the device rate, until the stop signal or the time cap.
-fn record(app: &AppHandle, rx: mpsc::Receiver<()>) -> Result<(Vec<f32>, u32), String> {
-    let host = cpal::default_host();
-    let device = host.default_input_device().ok_or("no-mic")?;
+fn record(app: &AppHandle, rx: mpsc::Receiver<()>) -> Result<(Vec<f32>, u32, String), String> {
+    let (device, name) = pick_device(app)?;
     let config = device.default_input_config().map_err(|e| e.to_string())?;
     let rate = config.sample_rate().0;
     let channels = config.channels().max(1) as usize;
@@ -182,7 +208,7 @@ fn record(app: &AppHandle, rx: mpsc::Receiver<()>) -> Result<(Vec<f32>, u32), St
     let _ = rx.recv_timeout(Duration::from_secs_f32(MAX_SECONDS));
     drop(stream);
     let samples = std::mem::take(&mut *buf.lock().unwrap());
-    Ok((samples, rate))
+    Ok((samples, rate, name))
 }
 
 /// Downmixes a callback's frames to mono and feeds the level meter (~20 fps).
@@ -205,7 +231,7 @@ fn push(buf: &Mutex<Vec<f32>>, app: &AppHandle, meter: &Mutex<Instant>, data: &[
     }
 }
 
-fn finish(app: &AppHandle, result: Result<(Vec<f32>, u32), String>) {
+fn finish(app: &AppHandle, result: Result<(Vec<f32>, u32, String), String>) {
     let started = {
         let state = app.state::<Dictation>();
         let mut inner = state.0.lock().unwrap();
@@ -218,7 +244,7 @@ fn finish(app: &AppHandle, result: Result<(Vec<f32>, u32), String>) {
             set_state(app, "error", Some(e));
             hide_later(app, 3000);
         }
-        Ok((samples, rate)) => {
+        Ok((samples, rate, device)) => {
             // A tap shorter than this is an accident, not a sentence.
             if seconds < 0.4 || samples.is_empty() {
                 hide_overlay(app);
@@ -226,8 +252,9 @@ fn finish(app: &AppHandle, result: Result<(Vec<f32>, u32), String>) {
             }
             let peak = samples.iter().fold(0f32, |m, s| m.max(s.abs()));
             if peak < 0.004 {
-                set_state(app, "error", Some("no-audio".into()));
-                hide_later(app, 4000);
+                // Name the device: a paired headset that is not really in use is the usual culprit.
+                set_state(app, "error", Some(format!("no-audio:{device}")));
+                hide_later(app, 6000);
                 return;
             }
             set_state(app, "transcribing", None);

@@ -34,6 +34,8 @@ export interface DictationSettings {
   cleanup: boolean;
   /** Names and jargon handed to the transcriber as a hint. */
   vocabulary: string;
+  /** Microphone name; empty = system default. */
+  device: string;
 }
 
 export const DEFAULT_DICTATION: DictationSettings = {
@@ -43,6 +45,7 @@ export const DEFAULT_DICTATION: DictationSettings = {
   language: "auto",
   cleanup: true,
   vocabulary: "",
+  device: "",
 };
 
 export interface Settings {

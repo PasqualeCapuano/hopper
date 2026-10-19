@@ -316,5 +316,9 @@
   "dict.noMic": "No microphone found.",
   "dict.noKey": "No {{name}} key: add it in Settings › Account.",
   "dict.empty": "Nothing heard.",
-  "gen.microphone": "Microphone"
+  "gen.microphone": "Microphone",
+  "dict.device": "Microphone",
+  "dict.deviceDefault": "System default",
+  "dict.deviceHelp": "Paired headphones often stay the system default even when you are not wearing them, and then deliver silence. Pick the built-in microphone to be safe.",
+  "dict.noAudioFrom": "No sound from “{{device}}”. Pick another microphone in Settings › Dictation, or check the Microphone permission."
 }

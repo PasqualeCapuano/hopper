@@ -38,9 +38,12 @@ struct PrefsInner {
 }
 
 #[tauri::command]
-fn set_prefs(app: AppHandle, grab_selection: bool, dictation_toggle: bool) {
+fn set_prefs(app: AppHandle, grab_selection: bool, dictation_toggle: bool, dictation_device: Option<String>) {
     app.state::<Prefs>().0.lock().unwrap().grab_selection = grab_selection;
-    app.state::<dictation::Dictation>().0.lock().unwrap().toggle = dictation_toggle;
+    let dict = app.state::<dictation::Dictation>();
+    let mut d = dict.0.lock().unwrap();
+    d.toggle = dictation_toggle;
+    d.device = dictation_device.filter(|s| !s.is_empty());
 }
 
 /// Registered global shortcuts and what they trigger: "open" or a quick-action id.
@@ -616,7 +619,8 @@ pub fn run() {
             dictation::dictation_start,
             dictation::dictation_stop,
             dictation::dictation_done,
-            dictation::dictation_insert
+            dictation::dictation_insert,
+            dictation::list_microphones
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

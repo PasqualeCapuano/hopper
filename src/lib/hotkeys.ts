@@ -8,7 +8,7 @@ const IS_MAC = navigator.userAgent.includes("Mac");
  * that has one, and pushes the behaviour prefs to Rust. Returns failed ids.
  */
 export async function applyHotkeys(settings: Settings): Promise<string[]> {
-  void invoke("set_prefs", { grabSelection: settings.grabSelection, dictationToggle: settings.dictation.toggle }).catch(() => {});
+  void invoke("set_prefs", { grabSelection: settings.grabSelection, dictationToggle: settings.dictation.toggle, dictationDevice: settings.dictation.device || null }).catch(() => {});
   const bindings = [{ id: "open", shortcut: settings.hotkey }];
   if (settings.shotHotkey?.trim()) bindings.push({ id: "shot", shortcut: settings.shotHotkey.trim() });
   if (settings.dictation.hotkey?.trim()) bindings.push({ id: "dictate", shortcut: settings.dictation.hotkey.trim() });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useTranslation } from "react-i18next";
 import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import { providerInfo } from "../lib/providers";
@@ -18,8 +19,10 @@ export default function DictationTab({ s, update }: { s: Settings; update: (p: P
   const set = (patch: Partial<DictationSettings>) => update({ dictation: { ...d, ...patch } });
   const [keys, setKeys] = useState<Partial<Record<SttProvider, boolean>>>({});
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [mics, setMics] = useState<string[]>([]);
 
   useEffect(() => {
+    void invoke<string[]>("list_microphones").then(setMics).catch(() => setMics([]));
     void Promise.all(PROVIDERS.map(async (p) => [p.id, !!(await getSecret(p.id))] as const)).then((e) => setKeys(Object.fromEntries(e)));
   }, []);
 
@@ -77,6 +80,17 @@ export default function DictationTab({ s, update }: { s: Settings; update: (p: P
         </div>
         <div className={keys[d.provider] ? "inline-ok" : "inline-err"}>
           {keys[d.provider] ? t("dict.keySaved", { name }) : t("dict.keyMissing", { name })} <span className="help" style={{ display: "inline" }}>· {STT_MODELS[d.provider]}</span>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2>{t("dict.device")}</h2>
+        <div className="field">
+          <select value={mics.includes(d.device) ? d.device : ""} onChange={(e) => set({ device: e.target.value })} aria-label={t("dict.device")} style={{ maxWidth: 420 }}>
+            <option value="">{t("dict.deviceDefault")}</option>
+            {mics.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+          <div className="help">{t("dict.deviceHelp")}</div>
         </div>
       </section>
 

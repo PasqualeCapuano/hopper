@@ -40,7 +40,9 @@ export default function Dictation() {
     };
   }, []);
 
-  const errorText = message === "no-audio" ? t("dict.noAudio") : message === "no-mic" ? t("dict.noMic") : message;
+  const errorText = message?.startsWith("no-audio:")
+    ? t("dict.noAudioFrom", { device: message.slice("no-audio:".length) })
+    : message === "no-audio" ? t("dict.noAudio") : message === "no-mic" ? t("dict.noMic") : message;
 
   return (
     <div className="dict glass">
