@@ -29,7 +29,8 @@ No browser tab, no switching windows, no pasting into a chat box.
 - **Chat**: turn any answer into a conversation without losing the original text as context.
 - **Paste back**: send the result straight into the app you were in, no clipboard juggling.
 - **Your own actions**: write custom prompts, choose what happens after the answer, give each a shortcut.
-- **Your own AI**: works with Claude (Anthropic) or OpenAI. You bring the key, you choose the model.
+- **Your own AI**: Claude, OpenAI, Gemini, Mistral, Groq, DeepSeek, OpenRouter, or any OpenAI-compatible endpoint. You bring the key, you choose the model.
+- **Fully local, if you want**: point it at Ollama or LM Studio and nothing ever leaves your computer. No key, no cost.
 - **Follows your system**: light and dark appearance, system font, a translucent window that sits over your desktop.
 
 ## Install
@@ -59,15 +60,15 @@ irm https://raw.githubusercontent.com/PasqualeCapuano/hopper/main/install.ps1 | 
 ## First run
 
 1. Click the red Hopper icon in the menu bar and open **Settings**.
-2. Choose a provider, **Claude** or **OpenAI**, and paste an API key.
-   - Claude: create a key at [console.anthropic.com](https://console.anthropic.com/settings/keys).
-   - OpenAI: create a key at [platform.openai.com](https://platform.openai.com/api-keys).
-3. Press **Test and save**. The key is stored on your computer, in a file only your user account can read.
+2. Choose a provider and paste an API key. Each card links to the page where you create one:
+   - **Claude** ([console.anthropic.com](https://console.anthropic.com/settings/keys)), **OpenAI** ([platform.openai.com](https://platform.openai.com/api-keys)), **Gemini**, **Mistral**, **Groq**, **DeepSeek**, **OpenRouter** (one key for hundreds of models), or **Custom** for any OpenAI-compatible server.
+   - **Ollama** or **LM Studio**: no key. Install the app, download a model (`ollama pull llama3.2`), pick it in Hopper. Everything runs on your machine.
+3. Press **Test and save**. The key is stored on your computer, in a file only your user account can read. Use "Load the list from the provider" to pick a model from what your account or local server offers.
 4. Copy some text anywhere and press **⌥ Space** (macOS) or **Ctrl+Shift+Space** (Windows).
 
 ### What it costs
 
-Hopper itself is free. The AI replies are billed by your provider, per request, on the key you added. A typical request, a few hundred words in and a short answer out, costs about one cent with Claude Opus. Three hundred requests a month is roughly four dollars.
+Hopper itself is free. With Ollama or LM Studio the replies are free too. With a cloud provider they are billed per request on the key you added. A typical request, a few hundred words in and a short answer out, costs about one cent with Claude Opus. Three hundred requests a month is roughly four dollars.
 
 If you have a **Claude Max** subscription, it includes a monthly API credit (100 $ on Max 5x, 200 $ on Max 20x) that covers this kind of use entirely. Claim it from your Anthropic Console account. Claude Pro/Max and ChatGPT Plus logins themselves cannot be used by third-party apps, which is why Hopper asks for a key.
 

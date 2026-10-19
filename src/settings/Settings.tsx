@@ -5,12 +5,14 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { AiError, testConnection } from "../lib/ai";
+import { AiError, listModels, testConnection } from "../lib/ai";
+import { PROVIDERS, providerInfo } from "../lib/providers";
 import { deleteSecret, getSecret, setSecret } from "../lib/secrets";
 import {
   ANTHROPIC_MODELS,
   DEFAULT_ACTIONS,
   loadSettings,
+  modelFor,
   saveSettings,
   type Provider,
   type QuickAction,
@@ -18,21 +20,6 @@ import {
 } from "../lib/settings";
 
 type Tab = "account" | "hotkey" | "actions" | "general";
-
-const PROVIDER_INFO: Record<Provider, { name: string; desc: string; url: string; placeholder: string }> = {
-  anthropic: {
-    name: "Anthropic · Claude",
-    desc: "Chiave da console.anthropic.com. Con Max hai crediti API inclusi.",
-    url: "https://console.anthropic.com/settings/keys",
-    placeholder: "sk-ant-api03-…",
-  },
-  openai: {
-    name: "OpenAI",
-    desc: "Chiave da platform.openai.com.",
-    url: "https://platform.openai.com/api-keys",
-    placeholder: "sk-…",
-  },
-};
 
 export default function Settings() {
   const [tab, setTab] = useState<Tab>("account");
@@ -95,19 +82,28 @@ export default function Settings() {
 
 function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p: Partial<SettingsModel>) => void; onPendingKey: (p: { provider: Provider; key: string } | null) => void }) {
   const [key, setKey] = useState("");
-  const [hasKey, setHasKey] = useState<Record<Provider, boolean>>({ anthropic: false, openai: false });
+  const [hasKey, setHasKey] = useState<Partial<Record<Provider, boolean>>>({});
   const [replacing, setReplacing] = useState(false);
   const [show, setShow] = useState(false);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
-  const [keychainError, setKeychainError] = useState<string | null>(null);
+  const [storeError, setStoreError] = useState<string | null>(null);
+  const [models, setModels] = useState<string[]>([]);
+  const [modelsStatus, setModelsStatus] = useState<string | null>(null);
+
+  const info = providerInfo(s.provider);
+  const saved = !!hasKey[s.provider];
+  const editing = info.needsKey && (!saved || replacing);
+  const model = modelFor(s);
 
   const refresh = async () => {
     try {
-      const [a, o] = await Promise.all([getSecret("anthropic"), getSecret("openai")]);
-      setHasKey({ anthropic: !!a, openai: !!o });
-      setKeychainError(null);
+      const entries = await Promise.all(
+        PROVIDERS.filter((p) => p.needsKey || p.id === "custom").map(async (p) => [p.id, !!(await getSecret(p.id))] as const),
+      );
+      setHasKey(Object.fromEntries(entries));
+      setStoreError(null);
     } catch (err) {
-      setKeychainError(`Non riesco a leggere le chiavi salvate: ${String(err)}`);
+      setStoreError(`Non riesco a leggere le chiavi salvate: ${String(err)}`);
     }
   };
 
@@ -115,14 +111,19 @@ function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p:
     void refresh();
   }, []);
 
-  const info = PROVIDER_INFO[s.provider];
-  const saved = hasKey[s.provider];
-  const editing = !saved || replacing;
+  useEffect(() => {
+    setModels([]);
+    setModelsStatus(null);
+  }, [s.provider]);
+
+  const setModel = (m: string) => update({ models: { ...s.models, [s.provider]: m } });
 
   const onKeyChange = (v: string) => {
     setKey(v);
     onPendingKey(v.trim() ? { provider: s.provider, key: v } : null);
   };
+
+  const currentKey = async () => (key.trim() ? key.trim() : await getSecret(s.provider));
 
   const saveAndTest = async () => {
     const k = key.trim();
@@ -157,74 +158,131 @@ function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p:
     }
   };
 
+  const testOnly = async () => {
+    setStatus({ ok: true, text: "Provo a contattare il server…" });
+    try {
+      await testConnection(s, await currentKey());
+      setStatus({ ok: true, text: `Connessione riuscita con ${model}.` });
+    } catch (err) {
+      setStatus({ ok: false, text: err instanceof AiError ? err.message : String(err) });
+    }
+  };
+
   const remove = async () => {
     await deleteSecret(s.provider);
     await refresh();
     setStatus({ ok: true, text: "Chiave rimossa." });
   };
 
+  const loadModels = async () => {
+    setModelsStatus("Carico l'elenco…");
+    try {
+      const ids = await listModels(s, await currentKey());
+      setModels(ids);
+      setModelsStatus(ids.length ? `${ids.length} modelli disponibili` : "Nessun modello: scaricane uno prima.");
+      if (!model && ids.length) setModel(ids[0]);
+    } catch (err) {
+      setModelsStatus(err instanceof AiError ? err.message : String(err));
+    }
+  };
+
   return (
     <>
       <div>
         <h1>Account e modello</h1>
-        <div className="lead">Hopper usa una API key a consumo, salvata in un file leggibile solo dal tuo utente, sul tuo computer. Gli abbonamenti Claude Pro/Max e ChatGPT Plus non si possono collegare da app di terze parti, ma con Max hai crediti API mensili inclusi.</div>
+        <div className="lead">Hopper usa la tua chiave API, salvata in un file leggibile solo dal tuo utente, o un modello che gira sul tuo computer. Gli abbonamenti Claude Pro/Max e ChatGPT Plus non si possono collegare da app di terze parti; con Claude Max hai crediti API mensili inclusi.</div>
       </div>
-      {keychainError ? <div className="inline-err">{keychainError}</div> : null}
-      <div className="grid-2">
-        {(["anthropic", "openai"] as Provider[]).map((p) => (
-          <button key={p} className={"provider-card" + (s.provider === p ? " active" : "")} onClick={() => { update({ provider: p }); setStatus(null); setReplacing(false); setKey(""); onPendingKey(null); }}>
-            <span className="name">{PROVIDER_INFO[p].name}</span>
-            <span className="desc">{PROVIDER_INFO[p].desc}</span>
-            <span className={"state" + (hasKey[p] ? " ok" : "")}>{hasKey[p] ? "Chiave salvata" : "Nessuna chiave"}</span>
+      {storeError ? <div className="inline-err">{storeError}</div> : null}
+      <div className="provider-grid">
+        {PROVIDERS.map((p) => (
+          <button key={p.id} className={"provider-card" + (s.provider === p.id ? " active" : "")} onClick={() => { update({ provider: p.id }); setStatus(null); setReplacing(false); setKey(""); onPendingKey(null); }}>
+            <span className="name">{p.name}</span>
+            <span className={"state" + (p.needsKey ? (hasKey[p.id] ? " ok" : "") : " ok")}>{p.local ? "Locale" : p.needsKey ? (hasKey[p.id] ? "Chiave salvata" : "Nessuna chiave") : "Senza chiave"}</span>
           </button>
         ))}
       </div>
-      <div className="field">
-        <label htmlFor="key">API key {info.name}</label>
-        {editing ? (
-          <>
-            <div className="btn-row">
-              <input id="key" className="mono" type={show ? "text" : "password"} placeholder={info.placeholder} value={key} onChange={(e) => onKeyChange(e.target.value)} style={{ flexGrow: 1 }} autoFocus={replacing} />
-              <button className="btn" onClick={() => setShow(!show)}>{show ? "Nascondi" : "Mostra"}</button>
-              <button className="btn primary" onClick={() => void saveAndTest()} disabled={!key.trim()}>Prova e salva</button>
-            </div>
-            <div className="help">
-              <a href="#" onClick={(e) => { e.preventDefault(); void saveOnly(); }} style={{ pointerEvents: key.trim() ? "auto" : "none", opacity: key.trim() ? 1 : 0.5 }}>Salva senza verificare</a>
-              {" · "}Non hai una chiave? <a href="#" onClick={(e) => { e.preventDefault(); void openUrl(info.url); }}>Creala qui</a>.
-              {replacing ? <> · <a href="#" onClick={(e) => { e.preventDefault(); setReplacing(false); setKey(""); onPendingKey(null); }}>Annulla</a></> : null}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="btn-row">
-              <input id="key" className="mono" type="text" readOnly value={"••••••••••••••••••••••••  salvata"} style={{ flexGrow: 1, color: "var(--muted)" }} />
-              <button className="btn" onClick={() => { setReplacing(true); setStatus(null); }}>Sostituisci</button>
-              <button className="btn" onClick={() => void remove()}>Rimuovi</button>
-            </div>
-            <div className="help">La chiave non viene mai mostrata: per cambiarla incollane una nuova.</div>
-          </>
-        )}
-        {status ? <div className={status.ok ? "inline-ok" : "inline-err"}>{status.text}</div> : null}
-      </div>
+      <div className="help">{info.desc}</div>
+
+      {info.id === "custom" ? (
+        <div className="field">
+          <label htmlFor="base">URL dell'endpoint</label>
+          <input id="base" className="mono" placeholder="https://esempio.com/v1" value={s.customBaseUrl} onChange={(e) => update({ customBaseUrl: e.target.value })} />
+          <div className="help">Qualsiasi server che espone l'API chat completions di OpenAI. La chiave sotto è facoltativa.</div>
+        </div>
+      ) : null}
+
+      {info.needsKey || info.id === "custom" ? (
+        <div className="field">
+          <label htmlFor="key">API key {info.name}</label>
+          {editing || (info.id === "custom" && (!saved || replacing)) ? (
+            <>
+              <div className="btn-row">
+                <input id="key" className="mono" type={show ? "text" : "password"} placeholder={info.keyPlaceholder} value={key} onChange={(e) => onKeyChange(e.target.value)} style={{ flexGrow: 1 }} autoFocus={replacing} />
+                <button className="btn" onClick={() => setShow(!show)}>{show ? "Nascondi" : "Mostra"}</button>
+                <button className="btn primary" onClick={() => void saveAndTest()} disabled={!key.trim()}>Prova e salva</button>
+              </div>
+              <div className="help">
+                <a href="#" onClick={(e) => { e.preventDefault(); void saveOnly(); }} style={{ pointerEvents: key.trim() ? "auto" : "none", opacity: key.trim() ? 1 : 0.5 }}>Salva senza verificare</a>
+                {info.keyUrl ? <>{" · "}Non hai una chiave? <a href="#" onClick={(e) => { e.preventDefault(); void openUrl(info.keyUrl!); }}>Creala qui</a>.</> : null}
+                {replacing ? <> · <a href="#" onClick={(e) => { e.preventDefault(); setReplacing(false); setKey(""); onPendingKey(null); }}>Annulla</a></> : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="btn-row">
+                <input id="key" className="mono" type="text" readOnly value={"••••••••••••••••••••••••  salvata"} style={{ flexGrow: 1, color: "var(--muted)" }} />
+                <button className="btn" onClick={() => { setReplacing(true); setStatus(null); }}>Sostituisci</button>
+                <button className="btn" onClick={() => void remove()}>Rimuovi</button>
+                <button className="btn" onClick={() => void testOnly()}>Prova</button>
+              </div>
+              <div className="help">La chiave non viene mai mostrata: per cambiarla incollane una nuova.</div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="field">
+          <label>Server locale</label>
+          <div className="btn-row">
+            <button className="btn" onClick={() => void testOnly()}>Prova connessione</button>
+            {info.keyUrl ? <a href="#" onClick={(e) => { e.preventDefault(); void openUrl(info.keyUrl!); }}>Scarica {info.name}</a> : null}
+          </div>
+          <div className="help">Nessuna chiave: Hopper parla con {info.name} su {info.baseURL}. I testi non lasciano il computer.</div>
+        </div>
+      )}
+      {status ? <div className={status.ok ? "inline-ok" : "inline-err"}>{status.text}</div> : null}
+
       <div className="grid-2">
         <div className="field">
           <label htmlFor="model">Modello</label>
           {s.provider === "anthropic" ? (
-            <select id="model" value={s.anthropicModel} onChange={(e) => update({ anthropicModel: e.target.value })}>
+            <select id="model" value={model} onChange={(e) => setModel(e.target.value)}>
               {ANTHROPIC_MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
             </select>
+          ) : models.length ? (
+            <select id="model" value={models.includes(model) ? model : ""} onChange={(e) => setModel(e.target.value)}>
+              {!models.includes(model) ? <option value="">{model || "Scegli…"}</option> : null}
+              {models.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
           ) : (
-            <input id="model" className="mono" value={s.openaiModel} onChange={(e) => update({ openaiModel: e.target.value })} />
+            <input id="model" className="mono" placeholder={info.defaultModel || "nome del modello"} value={s.models[s.provider] ?? ""} onChange={(e) => setModel(e.target.value)} />
           )}
+          {s.provider !== "anthropic" ? (
+            <div className="help">
+              <a href="#" onClick={(e) => { e.preventDefault(); void loadModels(); }}>Carica l'elenco dal provider</a>
+              {modelsStatus ? <> · {modelsStatus}</> : null}
+            </div>
+          ) : null}
         </div>
-        <div className="field">
-          <label htmlFor="effort">Profondità di ragionamento</label>
-          <select id="effort" value={s.effort} onChange={(e) => update({ effort: e.target.value as SettingsModel["effort"] })} disabled={s.provider !== "anthropic"}>
-            <option value="low">Bassa · risposte rapide</option>
-            <option value="medium">Media</option>
-            <option value="high">Alta</option>
-          </select>
-        </div>
+        {s.provider === "anthropic" ? (
+          <div className="field">
+            <label htmlFor="effort">Profondità di ragionamento</label>
+            <select id="effort" value={s.effort} onChange={(e) => update({ effort: e.target.value as SettingsModel["effort"] })}>
+              <option value="low">Bassa · risposte rapide</option>
+              <option value="medium">Media</option>
+              <option value="high">Alta</option>
+            </select>
+          </div>
+        ) : null}
       </div>
       <div className="field">
         <label htmlFor="sys">Istruzioni per il tuo agente</label>

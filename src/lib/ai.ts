@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { getSecret } from "./secrets";
-import { modelFor, type Settings } from "./settings";
+import { providerInfo } from "./providers";
+import { baseUrlFor, modelFor, type Settings } from "./settings";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -20,7 +21,8 @@ export class AiError extends Error {
   }
 }
 
-function mapError(err: unknown): AiError {
+function mapError(err: unknown, settings?: Settings): AiError {
+  const offline = settings ? providerInfo(settings.provider).offlineHint : "Nessuna connessione";
   if (err instanceof AiError) return err;
   if (err instanceof DOMException && err.name === "AbortError") return new AiError("aborted", "Annullato");
 
@@ -38,7 +40,7 @@ function mapError(err: unknown): AiError {
     return new AiError("other", msg);
   }
   if (err instanceof Anthropic.APIConnectionError || err instanceof OpenAI.APIConnectionError) {
-    return new AiError("offline", "Nessuna connessione");
+    return new AiError("offline", offline);
   }
   if (err instanceof Anthropic.APIError || err instanceof OpenAI.APIError) {
     return new AiError("other", `Errore ${err.status ?? ""}: ${err.message}`.trim());
@@ -51,18 +53,40 @@ function mapError(err: unknown): AiError {
  * Both providers are called directly from the webview with the official SDKs;
  * the key is fetched from the OS keychain for this request only.
  */
+/** Builds an OpenAI SDK client for any OpenAI-compatible provider. */
+async function compatibleClient(settings: Settings, apiKey: string | null, maxRetries: number): Promise<OpenAI> {
+  const info = providerInfo(settings.provider);
+  const baseURL = baseUrlFor(settings);
+  if (info.id === "custom" && !baseURL) throw new AiError("other", "Inserisci l'URL dell'endpoint nelle impostazioni");
+  // The SDK refuses an empty key; local runtimes ignore whatever we send.
+  return new OpenAI({ apiKey: apiKey || "hopper", baseURL: baseURL ?? undefined, dangerouslyAllowBrowser: true, maxRetries });
+}
+
+async function keyFor(settings: Settings): Promise<string | null> {
+  const info = providerInfo(settings.provider);
+  const apiKey = await getSecret(settings.provider);
+  if (info.needsKey && !apiKey) throw new AiError("no-key", "Nessuna API key configurata");
+  return apiKey;
+}
+
+/**
+ * Streams the assistant's reply as text deltas.
+ * Anthropic uses its own SDK; every other provider goes through the OpenAI SDK
+ * pointed at that provider's base URL. Keys are read from local storage for
+ * this request only.
+ */
 export async function* streamChat(
   settings: Settings,
   messages: ChatMessage[],
   signal: AbortSignal,
 ): AsyncGenerator<string> {
-  const apiKey = await getSecret(settings.provider);
-  if (!apiKey) throw new AiError("no-key", "Nessuna API key configurata");
+  const apiKey = await keyFor(settings);
   const model = modelFor(settings);
+  if (!model) throw new AiError("other", "Scegli un modello nelle impostazioni");
 
   try {
     if (settings.provider === "anthropic") {
-      const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 1 });
+      const client = new Anthropic({ apiKey: apiKey ?? "", dangerouslyAllowBrowser: true, maxRetries: 1 });
       const stream = client.messages.stream(
         {
           model,
@@ -85,29 +109,41 @@ export async function* streamChat(
       return;
     }
 
-    const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 1 });
-    const stream = await client.responses.create(
+    const client = await compatibleClient(settings, apiKey, 1);
+    const stream = await client.chat.completions.create(
       {
         model,
-        instructions: settings.systemPrompt,
-        input: messages.map((m) => ({ role: m.role, content: m.content })),
+        messages: [{ role: "system", content: settings.systemPrompt }, ...messages],
         stream: true,
       },
       { signal },
     );
-    for await (const event of stream) {
-      if (event.type === "response.output_text.delta") yield event.delta;
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) yield delta;
     }
   } catch (err) {
-    throw mapError(err);
+    throw mapError(err, settings);
   }
 }
 
-/** Minimal call used by Settings to verify a key. */
-export async function testConnection(settings: Settings, apiKey: string): Promise<void> {
+/** Lists the models a provider exposes (OpenAI-compatible `/models`). */
+export async function listModels(settings: Settings, apiKey: string | null): Promise<string[]> {
+  try {
+    const client = await compatibleClient(settings, apiKey, 0);
+    const ids: string[] = [];
+    for await (const m of client.models.list()) ids.push(m.id);
+    return ids.sort();
+  } catch (err) {
+    throw mapError(err, settings);
+  }
+}
+
+/** Minimal call used by Settings to verify a key or a local server. */
+export async function testConnection(settings: Settings, apiKey: string | null): Promise<void> {
   try {
     if (settings.provider === "anthropic") {
-      const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 0 });
+      const client = new Anthropic({ apiKey: apiKey ?? "", dangerouslyAllowBrowser: true, maxRetries: 0 });
       await client.messages.create({
         model: modelFor(settings),
         max_tokens: 32,
@@ -116,9 +152,13 @@ export async function testConnection(settings: Settings, apiKey: string): Promis
       });
       return;
     }
-    const client = new OpenAI({ apiKey, dangerouslyAllowBrowser: true, maxRetries: 0 });
-    await client.responses.create({ model: modelFor(settings), input: "Rispondi solo: ok" });
+    const client = await compatibleClient(settings, apiKey, 0);
+    await client.chat.completions.create({
+      model: modelFor(settings),
+      max_tokens: 8,
+      messages: [{ role: "user", content: "Rispondi solo: ok" }],
+    });
   } catch (err) {
-    throw mapError(err);
+    throw mapError(err, settings);
   }
 }

@@ -14,7 +14,7 @@ Liquid glass: finestra trasparente con vibrancy nativa (crate `window-vibrancy`,
 - Plugin Tauri: `global-shortcut`, `clipboard-manager`, `autostart`, `store`, `opener`
 - API key in `secrets.json` (0600) nella cartella dati dell'app; il Keychain tornerà con i build firmati (i build non firmati cambiano identità a ogni versione e macOS chiede la password)
 - `enigo` → simula ⌘V / Ctrl+V per "Incolla nell'app" (su macOS serve il permesso Accessibilità)
-- SDK ufficiali `@anthropic-ai/sdk` e `openai`, chiamati dalla webview con streaming
+- SDK ufficiali `@anthropic-ai/sdk` e `openai`, chiamati dalla webview con streaming. Tutti i provider tranne Anthropic passano dall'SDK OpenAI con `baseURL` del provider (catalogo in `src/lib/providers.ts`): OpenAI, Ollama, LM Studio, OpenRouter, Gemini, Mistral, Groq, DeepSeek, endpoint personalizzato
 
 ## Vincolo di prodotto
 
@@ -56,7 +56,8 @@ src-tauri/tauri.conf.json   finestra popup (senza bordi, always-on-top), CSP
 src-tauri/capabilities/     permessi IPC
 src/popup/Popup.tsx         popup: idle → risultato → chat, errori, scorciatoie da tastiera
 src/settings/Settings.tsx   account/modello, hotkey, azioni rapide, generale
-src/lib/ai.ts               streaming Anthropic/OpenAI, mappatura errori
+src/lib/ai.ts               streaming Anthropic e OpenAI-compatibile, elenco modelli, mappatura errori
+src/lib/providers.ts        catalogo provider: base URL, chiave, modello di default
 src/lib/settings.ts         impostazioni (plugin store) e azioni di default
 src/lib/secrets.ts          API key via Keychain (comandi Rust)
 src/lib/history.ts          ultimi 30 thread in locale

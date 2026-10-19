@@ -7,6 +7,7 @@ import { check, type Update } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { AiError, streamChat, type ChatMessage } from "../lib/ai";
 import { newThread, upsertThread, type Thread } from "../lib/history";
+import { providerInfo } from "../lib/providers";
 import {
   buildPrompt,
   loadSettings,
@@ -253,7 +254,7 @@ export default function Popup() {
   }, [update, updating]);
 
   const actions = settings?.actions.slice(0, 6) ?? [];
-  const providerLabel = settings ? (settings.provider === "anthropic" ? "Claude" : "OpenAI") + " · " + modelFor(settings) : "…";
+  const providerLabel = settings ? `${providerInfo(settings.provider).name} · ${modelFor(settings) || "nessun modello"}` : "…";
 
   return (
     <div className={"popup glass" + (entered ? " enter" : "")}>

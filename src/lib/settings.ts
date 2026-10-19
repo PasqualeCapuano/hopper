@@ -1,6 +1,7 @@
 import { load, type Store } from "@tauri-apps/plugin-store";
+import { providerInfo, type ProviderId } from "./providers";
 
-export type Provider = "anthropic" | "openai";
+export type Provider = ProviderId;
 export type Effort = "low" | "medium" | "high";
 export type ActionOutput = "show" | "copy" | "paste";
 
@@ -13,8 +14,10 @@ export interface QuickAction {
 
 export interface Settings {
   provider: Provider;
-  anthropicModel: string;
-  openaiModel: string;
+  /** Chosen model per provider; falls back to the catalog default. */
+  models: Partial<Record<Provider, string>>;
+  /** Base URL for the "custom" provider. */
+  customBaseUrl: string;
   effort: Effort;
   systemPrompt: string;
   hotkey: string;
@@ -68,8 +71,8 @@ export const DEFAULT_ACTIONS: QuickAction[] = [
 
 export const DEFAULT_SETTINGS: Settings = {
   provider: "anthropic",
-  anthropicModel: "claude-opus-5-5",
-  openaiModel: "gpt-5",
+  models: {},
+  customBaseUrl: "",
   effort: "medium",
   systemPrompt:
     "Sei un assistente personale che lavora dentro un popup di sistema. Rispondi in modo diretto, senza preamboli né formule di cortesia inutili. Rispondi in italiano salvo che il testo o la richiesta siano in un'altra lingua.",
@@ -89,8 +92,12 @@ function store(): Promise<Store> {
 
 export async function loadSettings(): Promise<Settings> {
   const s = await store();
-  const saved = (await s.get<Partial<Settings>>("settings")) ?? {};
-  return { ...DEFAULT_SETTINGS, ...saved };
+  const saved = (await s.get<Partial<Settings> & { anthropicModel?: string; openaiModel?: string }>("settings")) ?? {};
+  const merged: Settings = { ...DEFAULT_SETTINGS, ...saved, models: { ...(saved.models ?? {}) } };
+  // Settings written by 0.1.x kept one model field per provider.
+  if (saved.anthropicModel && !merged.models.anthropic) merged.models.anthropic = saved.anthropicModel;
+  if (saved.openaiModel && !merged.models.openai) merged.models.openai = saved.openaiModel;
+  return merged;
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {
@@ -105,5 +112,11 @@ export function buildPrompt(template: string, text: string): string {
 }
 
 export function modelFor(settings: Settings): string {
-  return settings.provider === "anthropic" ? settings.anthropicModel : settings.openaiModel;
+  return settings.models[settings.provider] || providerInfo(settings.provider).defaultModel;
+}
+
+export function baseUrlFor(settings: Settings): string | null {
+  const info = providerInfo(settings.provider);
+  if (info.id === "custom") return settings.customBaseUrl.trim() || null;
+  return info.baseURL;
 }
