@@ -1,6 +1,6 @@
 [package]
 name = "hopper"
-version = "0.5.0"
+version = "0.6.0"
 description = "Hopper: copy, hotkey, done"
 authors = ["Pasquale Capuano"]
 edition = "2024"
@@ -29,6 +29,8 @@ window-vibrancy = "0.8"
 tauri-plugin-process = "2"
 png = "0.17"
 base64 = "0.22"
+cpal = "0.15"
+hound = "3.5"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

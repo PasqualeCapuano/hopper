@@ -23,6 +23,10 @@ Liquid glass: finestra trasparente con vibrancy nativa (crate `window-vibrancy`,
 - **Screenshot**: hotkey `shot` (default ⌥⇧Space / Ctrl+Alt+Space) → `take_screenshot`. macOS: `screencapture -i -x` su file temporaneo, con controllo `CGPreflightScreenCaptureAccess` e prompt `CGRequestScreenCaptureAccess`. Windows: `explorer.exe ms-screenclip:` e polling della clipboard finché compare l'immagine (fino a 90 s).
 - Le azioni rapide hanno `input: any | text | image`; il popup mostra solo quelle compatibili con ciò che contiene.
 
+## Dettatura
+
+`src-tauri/src/dictation.rs`: alla hotkey `dictate` (pressione e rilascio dal plugin global-shortcut; modalità hold o toggle via `set_prefs`) un thread registra il microfono con `cpal`, fa il downmix a mono, manda il livello alla finestra `dictation` (pillola always-on-top non focalizzabile, `src/dictation/Dictation.tsx`) e allo stop codifica un WAV 16 kHz 16-bit (`hound`) che emette alla finestra `main` (`dictation-audio`). Lì `src/lib/dictation.ts` trascrive con l'SDK OpenAI puntato su Groq (`whisper-large-v3-turbo`) o OpenAI (`gpt-4o-mini-transcribe`), ripulisce con `streamChat` e un system prompt dedicato, e chiama `dictation_insert` (clipboard + ⌘V, poi ripristino). `NSMicrophoneUsageDescription` sta in `src-tauri/Info.plist`.
+
 ## Lingue
 
 Interfaccia in inglese di default, italiano selezionabile in Impostazioni › Generale. Stringhe con **i18next** (`react-i18next` nei componenti, `t()` di `src/lib/i18n.ts` nel codice non React): un file JSON per lingua in `src/locales/`, chiavi piatte (`popup.copy`). Per aggiungere una lingua: copia `en.json`, traducilo, registralo in `src/lib/i18n.ts` (`resources` e `LOCALES`). Seguono la lingua anche le azioni rapide di default (`src/lib/settings.ts`), la libreria (`src/lib/templates.ts`), il system prompt (`src/lib/profile.ts`) e il menu della tray (`set_tray_labels` in Rust).

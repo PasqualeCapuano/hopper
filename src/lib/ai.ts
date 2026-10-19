@@ -24,7 +24,7 @@ export class AiError extends Error {
   }
 }
 
-function mapError(err: unknown, settings?: Settings): AiError {
+export function mapError(err: unknown, settings?: Settings): AiError {
   const offline = settings ? providerInfo(settings.provider).offlineHint : t("ai.noConn");
   if (err instanceof AiError) return err;
   if (err instanceof DOMException && err.name === "AbortError") return new AiError("aborted", t("ai.aborted"));
@@ -83,7 +83,10 @@ export async function* streamChat(
   settings: Settings,
   messages: ChatMessage[],
   signal: AbortSignal,
+  /** Replaces the profile's system prompt (used by dictation clean-up). */
+  system?: string,
 ): AsyncGenerator<string> {
+  const systemPrompt = system ?? systemPromptFor(settings);
   const apiKey = await keyFor(settings);
   const model = modelFor(settings);
   if (!model) throw new AiError("other", t("ai.noModel"));
@@ -95,8 +98,8 @@ export async function* streamChat(
         {
           model,
           max_tokens: 16000,
-          system: systemPromptFor(settings),
-          output_config: { effort: settings.effort },
+          system: systemPrompt,
+          output_config: { effort: system ? "low" : settings.effort },
           messages: messages.map((m) =>
             m.role === "user" && m.image
               ? { role: "user" as const, content: [{ type: "image" as const, source: { type: "base64" as const, media_type: "image/png" as const, data: m.image } }, { type: "text" as const, text: m.content || "." }] }
@@ -122,7 +125,7 @@ export async function* streamChat(
       {
         model,
         messages: [
-          { role: "system", content: systemPromptFor(settings) },
+          { role: "system", content: systemPrompt },
           ...messages.map((m) =>
             m.role === "user" && m.image
               ? { role: "user" as const, content: [{ type: "image_url" as const, image_url: { url: `data:image/png;base64,${m.image}` } }, { type: "text" as const, text: m.content || "." }] }

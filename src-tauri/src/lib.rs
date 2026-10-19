@@ -1,3 +1,5 @@
+mod dictation;
+
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -36,8 +38,9 @@ struct PrefsInner {
 }
 
 #[tauri::command]
-fn set_prefs(app: AppHandle, grab_selection: bool) {
+fn set_prefs(app: AppHandle, grab_selection: bool, dictation_toggle: bool) {
     app.state::<Prefs>().0.lock().unwrap().grab_selection = grab_selection;
+    app.state::<dictation::Dictation>().0.lock().unwrap().toggle = dictation_toggle;
 }
 
 /// Registered global shortcuts and what they trigger: "open" or a quick-action id.
@@ -138,8 +141,6 @@ fn accessibility_prompt() -> bool {
 /// in whatever app was active before the popup opened.
 #[tauri::command]
 fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
-    use enigo::{Direction, Enigo, Key, Keyboard, Settings};
-
     app.clipboard().write_text(text).map_err(|e| e.to_string())?;
     if let Some(win) = app.get_webview_window("main") {
         let _ = win.hide();
@@ -147,20 +148,31 @@ fn paste_text(app: AppHandle, text: String) -> Result<(), String> {
     // Give the OS a moment to hand focus back to the previous app.
     std::thread::sleep(Duration::from_millis(180));
 
+    press_paste()
+}
+
+/// Simulates Cmd+V / Ctrl+V in the frontmost app.
+pub(crate) fn press_paste() -> Result<(), String> {
+    use enigo::{Direction, Enigo, Key, Keyboard, Settings};
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
     #[cfg(target_os = "macos")]
     let modifier = Key::Meta;
     #[cfg(not(target_os = "macos"))]
     let modifier = Key::Control;
-
     enigo.key(modifier, Direction::Press).map_err(|e| e.to_string())?;
-    enigo
-        .key(Key::Unicode('v'), Direction::Click)
-        .map_err(|e| e.to_string())?;
-    enigo
-        .key(modifier, Direction::Release)
-        .map_err(|e| e.to_string())?;
-    Ok(())
+    let clicked = enigo.key(Key::Unicode('v'), Direction::Click);
+    let _ = enigo.key(modifier, Direction::Release);
+    clicked.map_err(|e| e.to_string())
+}
+
+/// Waits (up to 600 ms) for the user to let go of modifier keys, e.g. the hotkey's own.
+pub(crate) fn wait_modifiers_released() {
+    for _ in 0..40 {
+        if !modifiers_held() {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(15));
+    }
 }
 
 // ---------- Selection, images, screenshots ----------
@@ -210,12 +222,7 @@ fn grab_selection(app: &AppHandle) -> Option<String> {
 
     // The hotkey's modifiers are usually still down: wait for them, otherwise the
     // app receives e.g. Option+Cmd+C instead of Cmd+C.
-    for _ in 0..40 {
-        if !modifiers_held() {
-            break;
-        }
-        std::thread::sleep(Duration::from_millis(15));
-    }
+    wait_modifiers_released();
     let mut enigo = Enigo::new(&Settings::default()).ok()?;
     #[cfg(target_os = "macos")]
     let modifier = Key::Meta;
@@ -360,14 +367,14 @@ fn take_screenshot_cmd(app: AppHandle) {
 
 // ---------- Glass ----------
 
-enum GlassKind {
+pub(crate) enum GlassKind {
     Popup,
     Window,
 }
 
 /// Native translucency behind the webview: vibrancy on macOS, acrylic on Windows.
 /// The CSS paints translucent surfaces on top of this blur.
-fn apply_glass(win: &tauri::WebviewWindow, kind: GlassKind) {
+pub(crate) fn apply_glass(win: &tauri::WebviewWindow, kind: GlassKind) {
     #[cfg(target_os = "macos")]
     {
         use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
@@ -519,9 +526,7 @@ pub fn run() {
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| {
-                    if event.state() != ShortcutState::Pressed {
-                        return;
-                    }
+                    let pressed = event.state() == ShortcutState::Pressed;
                     let target = app
                         .state::<Bindings>()
                         .0
@@ -531,6 +536,9 @@ pub fn run() {
                         .find(|(sc, _)| sc == shortcut)
                         .map(|(_, id)| id.clone());
                     match target.as_deref() {
+                        // Dictation cares about the release too (hold to talk).
+                        Some("dictate") => dictation::hotkey(app, pressed),
+                        _ if !pressed => {}
                         Some("open") | None => show_popup(app, None),
                         Some("shot") => take_screenshot(app, None),
                         Some(action) => show_popup(app, Some(action.to_string())),
@@ -541,6 +549,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(Bindings(Mutex::new(Vec::new())))
         .manage(Prefs(Mutex::new(PrefsInner::default())))
+        .manage(dictation::Dictation(Mutex::new(dictation::Inner::default())))
         .setup(|app| {
             // Menu-bar app: no Dock icon on macOS.
             #[cfg(target_os = "macos")]
@@ -603,7 +612,11 @@ pub fn run() {
             set_prefs,
             screen_recording_granted,
             screen_recording_prompt,
-            take_screenshot_cmd
+            take_screenshot_cmd,
+            dictation::dictation_start,
+            dictation::dictation_stop,
+            dictation::dictation_done,
+            dictation::dictation_insert
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

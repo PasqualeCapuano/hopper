@@ -22,6 +22,29 @@ export interface QuickAction {
   input?: ActionInput;
 }
 
+export type SttProvider = "groq" | "openai";
+
+export interface DictationSettings {
+  hotkey: string;
+  /** Press to start / press to stop instead of hold-to-talk. */
+  toggle: boolean;
+  provider: SttProvider;
+  language: "auto" | "it" | "en";
+  /** Second pass with the chat model: punctuation, fillers, spoken commands. */
+  cleanup: boolean;
+  /** Names and jargon handed to the transcriber as a hint. */
+  vocabulary: string;
+}
+
+export const DEFAULT_DICTATION: DictationSettings = {
+  hotkey: navigator.userAgent.includes("Mac") ? "Alt+Shift+KeyD" : "Ctrl+Alt+KeyD",
+  toggle: false,
+  provider: "groq",
+  language: "auto",
+  cleanup: true,
+  vocabulary: "",
+};
+
 export interface Settings {
   provider: Provider;
   /** Chosen model per provider; falls back to the catalog default. */
@@ -36,6 +59,7 @@ export interface Settings {
   shotHotkey: string;
   /** Press Cmd+C / Ctrl+C at the hotkey to read the selection without copying first. */
   grabSelection: boolean;
+  dictation: DictationSettings;
   autostart: boolean;
   theme: "system" | "light" | "dark";
   /** Interface language. English unless the user picks another. */
@@ -115,6 +139,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hotkey: navigator.userAgent.includes("Mac") ? "Alt+Space" : "Ctrl+Shift+Space",
   shotHotkey: navigator.userAgent.includes("Mac") ? "Alt+Shift+Space" : "Ctrl+Alt+Space",
   grabSelection: true,
+  dictation: DEFAULT_DICTATION,
   autostart: false,
   theme: "system",
   locale: "en",
@@ -141,6 +166,7 @@ export async function loadSettings(): Promise<Settings> {
     locale,
     models: { ...(saved.models ?? {}) },
     profile: { ...DEFAULT_PROFILE, ...(saved.profile ?? {}) },
+    dictation: { ...DEFAULT_DICTATION, ...(saved.dictation ?? {}) },
     actions: saved.actions ?? defaultActions(locale),
   };
   // Settings written before 0.4 had a free-form system prompt: keep it as extra instructions.

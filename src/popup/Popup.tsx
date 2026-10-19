@@ -14,6 +14,7 @@ import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import { ACTION_ICONS } from "../lib/icons";
 import { applyTheme } from "../lib/theme";
 import { applyTrayLabels } from "../lib/tray";
+import { runDictation } from "../lib/dictation";
 import {
   actionAccepts,
   buildPrompt,
@@ -131,9 +132,14 @@ export default function Popup() {
     const unlistenFocus = getCurrentWindow().onFocusChanged(({ payload: focused }) => {
       if (!focused) hide();
     });
+    // Dictation audio from Rust: this (hidden) window owns the SDKs, so it transcribes and inserts.
+    const unlistenDictation = listen<{ wav: string; seconds: number }>("dictation-audio", (e) => {
+      void runDictation(e.payload.wav);
+    });
     return () => {
       void unlistenOpen.then((f) => f());
       void unlistenFocus.then((f) => f());
+      void unlistenDictation.then((f) => f());
     };
   }, [hide, reset]);
 

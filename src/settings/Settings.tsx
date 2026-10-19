@@ -10,6 +10,7 @@ import HotkeyRecorder from "./HotkeyRecorder";
 import ActionsTab from "./ActionsTab";
 import GeneralTab from "./GeneralTab";
 import ProfileTab from "./ProfileTab";
+import DictationTab from "./DictationTab";
 import { applyTheme } from "../lib/theme";
 import { deleteSecret, getSecret, setSecret } from "../lib/secrets";
 import {
@@ -21,7 +22,7 @@ import {
   type Settings as SettingsModel,
 } from "../lib/settings";
 
-type Tab = "account" | "profile" | "hotkey" | "actions" | "general";
+type Tab = "account" | "profile" | "hotkey" | "actions" | "dictation" | "general";
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -75,6 +76,7 @@ export default function Settings() {
         <button className={tab === "profile" ? "active" : ""} onClick={() => setTab("profile")}>{t("nav.profile")}</button>
         <button className={tab === "hotkey" ? "active" : ""} onClick={() => setTab("hotkey")}>{t("nav.hotkey")}</button>
         <button className={tab === "actions" ? "active" : ""} onClick={() => setTab("actions")}>{t("nav.actions")}</button>
+        <button className={tab === "dictation" ? "active" : ""} onClick={() => setTab("dictation")}>{t("nav.dictation")}</button>
         <button className={tab === "general" ? "active" : ""} onClick={() => setTab("general")}>{t("nav.general")}</button>
         <div className="version">Hopper {version ? `v${version}` : ""}</div>
       </nav>
@@ -83,6 +85,7 @@ export default function Settings() {
         {tab === "profile" && <ProfileTab s={s} update={update} />}
         {tab === "hotkey" && <HotkeyTab s={s} update={update} />}
         {tab === "actions" && <ActionsTab s={s} update={update} />}
+        {tab === "dictation" && <DictationTab s={s} update={update} />}
         {tab === "general" && <GeneralTab s={s} update={update} />}
         <div className="btn-row" style={{ marginTop: "auto" }}>
           <div className="spacer" />

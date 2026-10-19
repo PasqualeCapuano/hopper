@@ -4,7 +4,8 @@
   "description": "Popup and settings windows",
   "windows": [
     "main",
-    "settings"
+    "settings",
+    "dictation"
   ],
   "permissions": [
     "core:default",

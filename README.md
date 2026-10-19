@@ -92,6 +92,8 @@ Drag the popup by its header to move it. It opens centred on the screen you are 
 
 **Screenshots.** Press ⌥⇧Space (Ctrl+Alt+Space on Windows), draw a rectangle, and the popup opens on the capture with the actions that work on images: extract the text, translate what's written, explain, reply, describe, or ask anything in chat. Copying an image and pressing the normal hotkey works the same way. On macOS this needs the Screen Recording permission: turn Hopper on when asked, then relaunch it. Because the builds are not yet signed with an Apple Developer ID, macOS may ask again after an update. Your model must accept images: Claude, GPT, Gemini and Mistral do; with Ollama pick a vision model such as `llava` or `qwen2.5-vl`.
 
+**Dictation.** Hold ⌥⇧D (Ctrl+Alt+D on Windows), talk, let go: what you said is typed where your cursor is, in any app. A small pill shows the level while you speak. Transcription runs on Groq (Whisper, free tier) or OpenAI with the key you saved in Account & model; your chat model then adds punctuation, drops the "uh"s and understands "new line", "new paragraph" and "scratch that" (switchable off). Settings → Dictation sets the hotkey, hold or press-to-toggle, the spoken language and words it should know. macOS asks for the Microphone permission once.
+
 **Language**: the interface is in English by default. Switch to Italian in Settings → General; the built-in quick actions and the library follow. Other languages are one JSON file away, see `src/locales`.
 
 **Paste back** on macOS needs the Accessibility permission, because Hopper has to press ⌘V on your behalf. macOS asks once, the first time you use it. Everything else works without it.
