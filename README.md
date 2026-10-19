@@ -1,0 +1,52 @@
+# Hopper
+
+App da barra dei menu per macOS e Windows. Copi un testo, premi la hotkey (default **⌥ Space**) e si apre un popup sopra qualsiasi finestra con il testo copiato e le azioni rapide (traduci, riassumi, rispondi, correggi, spiega, chat libera). La risposta arriva in streaming; poi la copi, la incolli nell'app sotto o continui in chat.
+
+Flussi e bozzetti: https://claude.ai/artifact/BP8eFVt2fJ1AL3metXU6kj
+
+## Look
+
+Liquid glass: finestra trasparente con vibrancy nativa (crate `window-vibrancy`, materiale Popover su macOS, acrylic su Windows) e superfici traslucide in CSS sopra la sfocatura. Un solo accento, rosso (`--accent`), tema chiaro e scuro seguono il sistema. Font di sistema.
+
+## Stack
+
+- **Tauri v2** (Rust) + **React 19** + TypeScript + Vite
+- Plugin Tauri: `global-shortcut`, `clipboard-manager`, `autostart`, `store`, `opener`
+- `keyring` → API key nel Keychain di macOS / Credential Manager di Windows
+- `enigo` → simula ⌘V / Ctrl+V per "Incolla nell'app" (su macOS serve il permesso Accessibilità)
+- SDK ufficiali `@anthropic-ai/sdk` e `openai`, chiamati dalla webview con streaming
+
+## Vincolo di prodotto
+
+Niente OAuth degli abbonamenti Claude Pro/Max o ChatGPT Plus: non è permesso alle app di terze parti. Si usa una API key a consumo. Con Claude Max hai crediti API mensili inclusi (100 $ su Max 5x, 200 $ su Max 20x), richiedibili da console.anthropic.com.
+
+## Avvio
+
+```bash
+npm install
+npm run tauri dev      # sviluppo (prima compilazione: alcuni minuti)
+npm run tauri build    # bundle .app/.dmg (macOS) o .msi (Windows)
+```
+
+Prerequisiti: Node 20+, Rust (rustup), Xcode Command Line Tools su macOS.
+
+## Struttura
+
+```
+src-tauri/src/lib.rs        tray, hotkey globale, posizionamento popup, Keychain, incolla
+src-tauri/tauri.conf.json   finestra popup (senza bordi, always-on-top), CSP
+src-tauri/capabilities/     permessi IPC
+src/popup/Popup.tsx         popup: idle → risultato → chat, errori, scorciatoie da tastiera
+src/settings/Settings.tsx   account/modello, hotkey, azioni rapide, generale
+src/lib/ai.ts               streaming Anthropic/OpenAI, mappatura errori
+src/lib/settings.ts         impostazioni (plugin store) e azioni di default
+src/lib/secrets.ts          API key via Keychain (comandi Rust)
+src/lib/history.ts          ultimi 30 thread in locale
+```
+
+## Da fare
+
+- Rifinire l'icona (generata da `python3 scripts/make-icon.py`, poi `npm run tauri icon src-tauri/icons/hopper-source.png`)
+- Firma e notarizzazione macOS, firma Windows
+- Cronologia thread visibile nel popup (oggi è solo salvata)
+- Rilevare l'app di origine del testo copiato

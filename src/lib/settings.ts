@@ -1,0 +1,109 @@
+import { load, type Store } from "@tauri-apps/plugin-store";
+
+export type Provider = "anthropic" | "openai";
+export type Effort = "low" | "medium" | "high";
+export type ActionOutput = "show" | "copy" | "paste";
+
+export interface QuickAction {
+  id: string;
+  label: string;
+  prompt: string;
+  output: ActionOutput;
+}
+
+export interface Settings {
+  provider: Provider;
+  anthropicModel: string;
+  openaiModel: string;
+  effort: Effort;
+  systemPrompt: string;
+  hotkey: string;
+  autostart: boolean;
+  actions: QuickAction[];
+}
+
+export const ANTHROPIC_MODELS = [
+  { id: "claude-opus-5-5", label: "Claude Opus 5.5 · consigliato" },
+  { id: "claude-sonnet-5-5", label: "Claude Sonnet 5.5 · più veloce" },
+  { id: "claude-haiku-5-5", label: "Claude Haiku 5.5 · economico" },
+];
+
+export const DEFAULT_ACTIONS: QuickAction[] = [
+  {
+    id: "translate",
+    label: "Traduci in italiano",
+    prompt:
+      "Traduci il testo in italiano. Mantieni tono e formattazione. Rispondi solo con la traduzione.\n\n{{testo}}",
+    output: "show",
+  },
+  {
+    id: "summarize",
+    label: "Riassumi",
+    prompt:
+      "Riassumi il testo in massimo 3 frasi, nella lingua del testo. Vai dritto al punto.\n\n{{testo}}",
+    output: "show",
+  },
+  {
+    id: "reply",
+    label: "Rispondi",
+    prompt:
+      "Scrivi una risposta a questo messaggio nella stessa lingua del testo. Tono cordiale e diretto, massimo 5 righe. Rispondi solo con il testo della risposta.\n\n{{testo}}",
+    output: "show",
+  },
+  {
+    id: "fix",
+    label: "Correggi",
+    prompt:
+      "Correggi errori di grammatica, ortografia e punteggiatura senza cambiare il significato o il tono. Rispondi solo con il testo corretto.\n\n{{testo}}",
+    output: "show",
+  },
+  {
+    id: "explain",
+    label: "Spiega",
+    prompt:
+      "Spiega questo testo in modo semplice e breve, in italiano. Se contiene richieste o scadenze, elencale.\n\n{{testo}}",
+    output: "show",
+  },
+];
+
+export const DEFAULT_SETTINGS: Settings = {
+  provider: "anthropic",
+  anthropicModel: "claude-opus-5-5",
+  openaiModel: "gpt-5",
+  effort: "medium",
+  systemPrompt:
+    "Sei un assistente personale che lavora dentro un popup di sistema. Rispondi in modo diretto, senza preamboli né formule di cortesia inutili. Rispondi in italiano salvo che il testo o la richiesta siano in un'altra lingua.",
+  hotkey: "Alt+Space",
+  autostart: false,
+  actions: DEFAULT_ACTIONS,
+};
+
+let storePromise: Promise<Store> | null = null;
+
+function store(): Promise<Store> {
+  if (!storePromise) {
+    storePromise = load("settings.json", { autoSave: true, defaults: {} });
+  }
+  return storePromise;
+}
+
+export async function loadSettings(): Promise<Settings> {
+  const s = await store();
+  const saved = (await s.get<Partial<Settings>>("settings")) ?? {};
+  return { ...DEFAULT_SETTINGS, ...saved };
+}
+
+export async function saveSettings(settings: Settings): Promise<void> {
+  const s = await store();
+  await s.set("settings", settings);
+  await s.save();
+}
+
+export function buildPrompt(template: string, text: string): string {
+  if (template.includes("{{testo}}")) return template.split("{{testo}}").join(text);
+  return `${template}\n\n---\n${text}`;
+}
+
+export function modelFor(settings: Settings): string {
+  return settings.provider === "anthropic" ? settings.anthropicModel : settings.openaiModel;
+}
