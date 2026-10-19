@@ -101,7 +101,7 @@ function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p:
       setHasKey({ anthropic: !!a, openai: !!o });
       setKeychainError(null);
     } catch (err) {
-      setKeychainError(`Non riesco a leggere il Keychain: ${String(err)}`);
+      setKeychainError(`Non riesco a leggere le chiavi salvate: ${String(err)}`);
     }
   };
 
@@ -129,7 +129,7 @@ function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p:
       onPendingKey(null);
       setReplacing(false);
       await refresh();
-      setStatus({ ok: true, text: "Connessione riuscita. Chiave salvata nel Keychain." });
+      setStatus({ ok: true, text: "Connessione riuscita. Chiave salvata." });
     } catch (err) {
       const msg = err instanceof AiError ? err.message : String(err);
       setStatus({ ok: false, text: `${msg}. La chiave non è stata salvata.` });
@@ -145,7 +145,7 @@ function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p:
       onPendingKey(null);
       setReplacing(false);
       await refresh();
-      setStatus({ ok: true, text: "Chiave salvata nel Keychain (non verificata)." });
+      setStatus({ ok: true, text: "Chiave salvata (non verificata)." });
     } catch (err) {
       setStatus({ ok: false, text: `Salvataggio fallito: ${String(err)}` });
     }
@@ -154,16 +154,16 @@ function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p:
   const remove = async () => {
     await deleteSecret(s.provider);
     await refresh();
-    setStatus({ ok: true, text: "Chiave rimossa dal Keychain." });
+    setStatus({ ok: true, text: "Chiave rimossa." });
   };
 
   return (
     <>
       <div>
         <h1>Account e modello</h1>
-        <div className="lead">Hopper usa una API key a consumo, salvata nel Keychain di macOS (o nel Credential Manager di Windows). Gli abbonamenti Claude Pro/Max e ChatGPT Plus non si possono collegare da app di terze parti, ma con Max hai crediti API mensili inclusi.</div>
+        <div className="lead">Hopper usa una API key a consumo, salvata in un file leggibile solo dal tuo utente, sul tuo computer. Gli abbonamenti Claude Pro/Max e ChatGPT Plus non si possono collegare da app di terze parti, ma con Max hai crediti API mensili inclusi.</div>
       </div>
-      {keychainError ? <div className="inline-err">{keychainError} Se macOS ha chiesto l'accesso al portachiavi, scegli "Consenti sempre".</div> : null}
+      {keychainError ? <div className="inline-err">{keychainError}</div> : null}
       <div className="grid-2">
         {(["anthropic", "openai"] as Provider[]).map((p) => (
           <button key={p} className={"provider-card" + (s.provider === p ? " active" : "")} onClick={() => { update({ provider: p }); setStatus(null); setReplacing(false); setKey(""); onPendingKey(null); }}>
@@ -191,7 +191,7 @@ function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p:
         ) : (
           <>
             <div className="btn-row">
-              <input id="key" className="mono" type="text" readOnly value={"••••••••••••••••••••••••  salvata nel Keychain"} style={{ flexGrow: 1, color: "var(--muted)" }} />
+              <input id="key" className="mono" type="text" readOnly value={"••••••••••••••••••••••••  salvata"} style={{ flexGrow: 1, color: "var(--muted)" }} />
               <button className="btn" onClick={() => { setReplacing(true); setStatus(null); }}>Sostituisci</button>
               <button className="btn" onClick={() => void remove()}>Rimuovi</button>
             </div>

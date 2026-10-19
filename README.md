@@ -62,7 +62,7 @@ irm https://raw.githubusercontent.com/PasqualeCapuano/hopper/main/install.ps1 | 
 2. Choose a provider, **Claude** or **OpenAI**, and paste an API key.
    - Claude: create a key at [console.anthropic.com](https://console.anthropic.com/settings/keys).
    - OpenAI: create a key at [platform.openai.com](https://platform.openai.com/api-keys).
-3. Press **Test and save**. The key goes into the macOS Keychain or the Windows Credential Manager, never into a file.
+3. Press **Test and save**. The key is stored on your computer, in a file only your user account can read.
 4. Copy some text anywhere and press **⌥ Space** (macOS) or **Ctrl+Shift+Space** (Windows).
 
 ### What it costs
@@ -94,7 +94,7 @@ Drag the popup by its header to move it. It opens centred on the screen you are 
 - Hopper has no server and no account. There is nothing to sign up for.
 - The only network traffic is the request to the provider you chose, sent directly from your computer to Anthropic or OpenAI, plus a check for new versions on GitHub at launch.
 - The clipboard is read only when you press the hotkey, never in the background.
-- API keys are stored in the system keychain. Conversation history (last 30 threads) stays in a local file you can delete at any time.
+- API keys are stored in a file readable only by your user account, inside Hopper's data folder (the same approach as `git`, `gh` or the AWS CLI). Keychain storage will come with signed builds. Conversation history (last 30 threads) stays next to it; delete the folder at any time.
 - The code is open source under the MIT license, so all of the above can be verified.
 
 ## Updates
@@ -109,9 +109,6 @@ Another app probably owns that combination. Claude Desktop, for instance, also u
 **"API key not valid".**
 The provider rejected the key. Open Settings → Account, paste it again and press Test and save. Keys from the Anthropic Console start with `sk-ant-`.
 
-**macOS keeps asking to access the keychain.**
-Choose "Always allow". This happens with unsigned builds and will go away once Hopper is notarized.
-
 **Can I use it with my ChatGPT Plus or Claude Pro login?**
 No. Those logins are reserved for the official apps. Hopper uses API keys, which are a separate, pay-per-use service from the same companies. Claude Max subscribers get monthly API credit, see above.
 
@@ -119,7 +116,7 @@ No. Those logins are reserved for the official apps. Hopper uses API keys, which
 The app opens, but replies need the provider. If you are offline Hopper keeps the request and offers a Retry.
 
 **Where is my data?**
-macOS: `~/Library/Application Support/com.pasqualecapuano.hopper/`. Windows: `%APPDATA%\com.pasqualecapuano.hopper\`. Delete the folder to reset everything except the key, which you remove from Settings.
+macOS: `~/Library/Application Support/com.pasqualecapuano.hopper/`. Windows: `%APPDATA%\com.pasqualecapuano.hopper\`. Delete the folder to reset everything, keys included.
 
 ## For developers
 

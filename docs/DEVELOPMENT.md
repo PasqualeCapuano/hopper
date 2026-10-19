@@ -12,13 +12,13 @@ Liquid glass: finestra trasparente con vibrancy nativa (crate `window-vibrancy`,
 
 - **Tauri v2** (Rust) + **React 19** + TypeScript + Vite
 - Plugin Tauri: `global-shortcut`, `clipboard-manager`, `autostart`, `store`, `opener`
-- `keyring` → API key nel Keychain di macOS / Credential Manager di Windows
+- API key in `secrets.json` (0600) nella cartella dati dell'app; il Keychain tornerà con i build firmati (i build non firmati cambiano identità a ogni versione e macOS chiede la password)
 - `enigo` → simula ⌘V / Ctrl+V per "Incolla nell'app" (su macOS serve il permesso Accessibilità)
 - SDK ufficiali `@anthropic-ai/sdk` e `openai`, chiamati dalla webview con streaming
 
 ## Vincolo di prodotto
 
-Niente OAuth degli abbonamenti Claude Pro/Max o ChatGPT Plus: non è permesso alle app di terze parti. Si usa una API key a consumo. Con Claude Max hai crediti API mensili inclusi (100 $ su Max 5x, 200 $ su Max 20x), richiedibili da console.anthropic.com.
+Niente OAuth degli abbonamenti Claude Pro/Max o ChatGPT Plus: non è permesso alle app di terze parti. Si usa una API key a consumo, salvata in locale. Con Claude Max hai crediti API mensili inclusi (100 $ su Max 5x, 200 $ su Max 20x), richiedibili da console.anthropic.com.
 
 ## Installazione
 

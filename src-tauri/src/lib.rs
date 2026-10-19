@@ -6,7 +6,6 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWi
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
-const KEYRING_SERVICE: &str = "com.pasqualecapuano.hopper";
 #[cfg(target_os = "macos")]
 const DEFAULT_HOTKEY: &str = "Alt+Space";
 #[cfg(not(target_os = "macos"))]
@@ -17,33 +16,63 @@ struct PopupPayload {
     text: Option<String>,
 }
 
-// ---------- Keychain / Credential Manager ----------
+// ---------- API keys ----------
+//
+// Keys live in a JSON file inside the app's data directory, readable only by
+// the current user (0600). The macOS Keychain would be nicer, but unsigned
+// builds get a new identity on every update and macOS then asks for the login
+// password each time. Switch back to `keyring` once the app is signed with a
+// Developer ID.
 
-#[tauri::command]
-fn secret_set(provider: String, key: String) -> Result<(), String> {
-    keyring::Entry::new(KEYRING_SERVICE, &provider)
-        .map_err(|e| e.to_string())?
-        .set_password(&key)
-        .map_err(|e| e.to_string())
+fn secrets_path(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    Ok(dir.join("secrets.json"))
 }
 
-#[tauri::command]
-fn secret_get(provider: String) -> Result<Option<String>, String> {
-    let entry = keyring::Entry::new(KEYRING_SERVICE, &provider).map_err(|e| e.to_string())?;
-    match entry.get_password() {
-        Ok(p) => Ok(Some(p)),
-        Err(keyring::Error::NoEntry) => Ok(None),
+fn secrets_read(app: &AppHandle) -> Result<serde_json::Map<String, serde_json::Value>, String> {
+    let path = secrets_path(app)?;
+    match std::fs::read_to_string(&path) {
+        Ok(text) => serde_json::from_str::<serde_json::Value>(&text)
+            .ok()
+            .and_then(|v| v.as_object().cloned())
+            .map(Ok)
+            .unwrap_or_else(|| Ok(serde_json::Map::new())),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(serde_json::Map::new()),
         Err(e) => Err(e.to_string()),
     }
 }
 
-#[tauri::command]
-fn secret_delete(provider: String) -> Result<(), String> {
-    let entry = keyring::Entry::new(KEYRING_SERVICE, &provider).map_err(|e| e.to_string())?;
-    match entry.delete_credential() {
-        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-        Err(e) => Err(e.to_string()),
+fn secrets_write(app: &AppHandle, map: &serde_json::Map<String, serde_json::Value>) -> Result<(), String> {
+    let path = secrets_path(app)?;
+    let text = serde_json::to_string_pretty(map).map_err(|e| e.to_string())?;
+    std::fs::write(&path, text).map_err(|e| e.to_string())?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
     }
+    Ok(())
+}
+
+#[tauri::command]
+fn secret_set(app: AppHandle, provider: String, key: String) -> Result<(), String> {
+    let mut map = secrets_read(&app)?;
+    map.insert(provider, serde_json::Value::String(key));
+    secrets_write(&app, &map)
+}
+
+#[tauri::command]
+fn secret_get(app: AppHandle, provider: String) -> Result<Option<String>, String> {
+    let map = secrets_read(&app)?;
+    Ok(map.get(&provider).and_then(|v| v.as_str()).map(|s| s.to_string()))
+}
+
+#[tauri::command]
+fn secret_delete(app: AppHandle, provider: String) -> Result<(), String> {
+    let mut map = secrets_read(&app)?;
+    map.remove(&provider);
+    secrets_write(&app, &map)
 }
 
 // ---------- Paste into the active app ----------

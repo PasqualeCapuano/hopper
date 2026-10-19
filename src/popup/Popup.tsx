@@ -378,7 +378,7 @@ export default function Popup() {
           {error.kind === "no-key" && (
             <div className="error-card">
               <div className="h">Nessuna API key configurata</div>
-              <div className="p">Aggiungi la chiave del provider nelle impostazioni. Resta nel Keychain del Mac.</div>
+              <div className="p">Aggiungi la chiave del provider nelle impostazioni. Resta sul tuo computer.</div>
               <div className="btn-row">
                 <button className="btn small primary" onClick={() => void invoke("open_settings_cmd")}>Apri Impostazioni</button>
                 <button className="btn small" onClick={hide}>Chiudi</button>
