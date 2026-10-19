@@ -90,7 +90,7 @@ Drag the popup by its header to move it. It opens centred on the screen you are 
 
 **No need to copy first.** With the Accessibility permission, Hopper reads whatever is selected when you press the hotkey (it presses ⌘C for you and puts your clipboard back). Without a selection it uses the clipboard, as before. You can switch this off in Settings → General.
 
-**Screenshots.** Press ⌥⇧Space (Ctrl+Alt+Space on Windows), draw a rectangle, and the popup opens on the capture with the actions that work on images: extract the text, translate what's written, explain, reply, describe, or ask anything in chat. Copying an image and pressing the normal hotkey works the same way. On macOS this needs the Screen Recording permission, asked once. Your model must accept images: Claude, GPT, Gemini and Mistral do; with Ollama pick a vision model such as `llava` or `qwen2.5-vl`.
+**Screenshots.** Press ⌥⇧Space (Ctrl+Alt+Space on Windows), draw a rectangle, and the popup opens on the capture with the actions that work on images: extract the text, translate what's written, explain, reply, describe, or ask anything in chat. Copying an image and pressing the normal hotkey works the same way. On macOS this needs the Screen Recording permission: turn Hopper on when asked, then relaunch it. Because the builds are not yet signed with an Apple Developer ID, macOS may ask again after an update. Your model must accept images: Claude, GPT, Gemini and Mistral do; with Ollama pick a vision model such as `llava` or `qwen2.5-vl`.
 
 **Language**: the interface is in English by default. Switch to Italian in Settings → General; the built-in quick actions and the library follow. Other languages are one JSON file away, see `src/locales`.
 
