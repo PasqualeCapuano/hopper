@@ -10,6 +10,8 @@ export interface QuickAction {
   label: string;
   prompt: string;
   output: ActionOutput;
+  /** Optional global shortcut that opens the popup and runs this action. */
+  shortcut?: string;
 }
 
 export interface Settings {

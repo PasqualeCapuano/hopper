@@ -1,4 +1,5 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
 use std::time::Duration;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
@@ -14,6 +15,17 @@ const DEFAULT_HOTKEY: &str = "Ctrl+Shift+Space";
 #[derive(Clone, Serialize)]
 struct PopupPayload {
     text: Option<String>,
+    /// Quick action to run right away (bound to its own global shortcut).
+    action: Option<String>,
+}
+
+/// Registered global shortcuts and what they trigger: "open" or a quick-action id.
+struct Bindings(Mutex<Vec<(Shortcut, String)>>);
+
+#[derive(Deserialize)]
+struct Binding {
+    id: String,
+    shortcut: String,
 }
 
 // ---------- API keys ----------
@@ -166,7 +178,7 @@ fn apply_glass(win: &tauri::WebviewWindow, kind: GlassKind) {
 
 // ---------- Windows ----------
 
-fn show_popup(app: &AppHandle) {
+fn show_popup(app: &AppHandle, action: Option<String>) {
     let text = app
         .clipboard()
         .read_text()
@@ -190,7 +202,7 @@ fn show_popup(app: &AppHandle) {
         }
         let _ = win.show();
         let _ = win.set_focus();
-        let _ = app.emit_to("main", "popup-open", PopupPayload { text });
+        let _ = app.emit_to("main", "popup-open", PopupPayload { text, action });
     }
 }
 
@@ -213,7 +225,7 @@ fn open_settings(app: &AppHandle) {
 
 #[tauri::command]
 fn show_popup_cmd(app: AppHandle) {
-    show_popup(&app);
+    show_popup(&app, None);
 }
 
 #[tauri::command]
@@ -228,12 +240,30 @@ fn hide_popup(app: AppHandle) {
     }
 }
 
+/// Replaces every global shortcut. Returns the ids whose shortcut could not be
+/// parsed or registered (typically because another app owns the combination).
 #[tauri::command]
-fn set_hotkey(app: AppHandle, hotkey: String) -> Result<(), String> {
-    let shortcut: Shortcut = hotkey.parse().map_err(|e| format!("{e:?}"))?;
+fn set_hotkeys(app: AppHandle, bindings: Vec<Binding>) -> Result<Vec<String>, String> {
     let gs = app.global_shortcut();
     gs.unregister_all().map_err(|e| e.to_string())?;
-    gs.register(shortcut).map_err(|e| e.to_string())
+    let mut registered: Vec<(Shortcut, String)> = Vec::new();
+    let mut failed = Vec::new();
+    for b in bindings {
+        let sc: Shortcut = match b.shortcut.parse() {
+            Ok(sc) => sc,
+            Err(_) => {
+                failed.push(b.id);
+                continue;
+            }
+        };
+        if registered.iter().any(|(r, _)| r == &sc) || gs.register(sc).is_err() {
+            failed.push(b.id);
+            continue;
+        }
+        registered.push((sc, b.id));
+    }
+    *app.state::<Bindings>().0.lock().unwrap() = registered;
+    Ok(failed)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -246,14 +276,27 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
-                    if event.state() == ShortcutState::Pressed {
-                        show_popup(app);
+                .with_handler(|app, shortcut, event| {
+                    if event.state() != ShortcutState::Pressed {
+                        return;
+                    }
+                    let target = app
+                        .state::<Bindings>()
+                        .0
+                        .lock()
+                        .unwrap()
+                        .iter()
+                        .find(|(sc, _)| sc == shortcut)
+                        .map(|(_, id)| id.clone());
+                    match target.as_deref() {
+                        Some("open") | None => show_popup(app, None),
+                        Some(action) => show_popup(app, Some(action.to_string())),
                     }
                 })
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
+        .manage(Bindings(Mutex::new(Vec::new())))
         .setup(|app| {
             // Menu-bar app: no Dock icon on macOS.
             #[cfg(target_os = "macos")]
@@ -267,9 +310,11 @@ pub fn run() {
             // Default hotkey; the settings window can replace it via `set_hotkey`.
             // Non-fatal: another app (e.g. Claude Desktop) may already own the combo;
             // the user can pick a different one in Settings › Scorciatoie.
+            // The frontend re-applies the saved bindings as soon as it loads.
             let shortcut: Shortcut = DEFAULT_HOTKEY.parse()?;
-            if let Err(e) = app.global_shortcut().register(shortcut) {
-                eprintln!("hotkey {DEFAULT_HOTKEY} not registered: {e}");
+            match app.global_shortcut().register(shortcut) {
+                Ok(()) => app.state::<Bindings>().0.lock().unwrap().push((shortcut, "open".into())),
+                Err(e) => eprintln!("hotkey {DEFAULT_HOTKEY} not registered: {e}"),
             }
 
             // Tray menu.
@@ -288,7 +333,7 @@ pub fn run() {
                 .show_menu_on_left_click(true)
                 .tooltip("Hopper")
                 .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open" => show_popup(app),
+                    "open" => show_popup(app, None),
                     "settings" => open_settings(app),
                     _ => {}
                 })
@@ -305,7 +350,7 @@ pub fn run() {
             show_popup_cmd,
             open_settings_cmd,
             hide_popup,
-            set_hotkey
+            set_hotkeys
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

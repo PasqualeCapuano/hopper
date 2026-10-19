@@ -8,6 +8,7 @@ import { relaunch } from "@tauri-apps/plugin-process";
 import { AiError, streamChat, type ChatMessage } from "../lib/ai";
 import { newThread, upsertThread, type Thread } from "../lib/history";
 import { providerInfo } from "../lib/providers";
+import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import {
   buildPrompt,
   loadSettings,
@@ -33,15 +34,6 @@ const ICON = {
   settings: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z",
 };
 
-function prettyHotkey(hk: string): string {
-  return hk
-    .replace(/CommandOrControl|Command|Super/g, "⌘")
-    .replace(/Control|Ctrl/g, "⌃")
-    .replace(/Alt|Option/g, "⌥")
-    .replace(/Shift/g, "⇧")
-    .replace(/\+/g, " ");
-}
-
 function Icon({ d, size = 16 }: { d: string; size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -63,6 +55,7 @@ export default function Popup() {
   const [notice, setNotice] = useState<Notice>(null);
   const [error, setError] = useState<PopupError | null>(null);
   const [entered, setEntered] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [update, setUpdate] = useState<Update | null>(null);
   const [updating, setUpdating] = useState(false);
 
@@ -96,14 +89,15 @@ export default function Popup() {
   useEffect(() => {
     void loadSettings().then((s) => {
       setSettings(s);
-      // The hotkey saved in Settings must win over the compiled-in default.
-      void invoke("set_hotkey", { hotkey: s.hotkey }).catch(() => {});
+      // Saved bindings (hotkey + per-action shortcuts) win over the compiled-in default.
+      void applyHotkeys(s).catch(() => {});
     });
     // Quiet update check at launch; failures (dev builds, offline) are ignored.
     void check().then((u) => { if (u) setUpdate(u); }).catch(() => {});
-    const unlistenOpen = listen<{ text: string | null }>("popup-open", (e) => {
+    const unlistenOpen = listen<{ text: string | null; action: string | null }>("popup-open", (e) => {
       void loadSettings().then(setSettings);
       reset(e.payload.text);
+      setPendingAction(e.payload.action);
       setEntered(false);
       requestAnimationFrame(() => setEntered(true));
       setTimeout(() => promptRef.current?.focus(), 30);
@@ -192,6 +186,14 @@ export default function Popup() {
     [clip, run],
   );
 
+  // A per-action global shortcut: run the action once the clipboard text is in place.
+  useEffect(() => {
+    if (!pendingAction || !settings || screen !== "idle") return;
+    const action = settings.actions.find((a) => a.id === pendingAction);
+    setPendingAction(null);
+    if (action && clip) runAction(action);
+  }, [pendingAction, settings, clip, screen, runAction]);
+
   const sendFree = useCallback(() => {
     const text = draft.trim();
     if (!text) return;
@@ -263,7 +265,7 @@ export default function Popup() {
         <div className="title">{title}</div>
         {screen !== "idle" && clip ? <div className="sub">· {clip.length} caratteri</div> : null}
         <div className="spacer" data-tauri-drag-region />
-        {screen === "idle" ? <div className="kbd">{prettyHotkey(settings?.hotkey ?? "")}</div> : null}
+        {screen === "idle" ? <div className="kbd">{prettyShortcut(settings?.hotkey ?? "")}</div> : null}
         <button className="icon-btn" aria-label="Impostazioni" onClick={() => void invoke("open_settings_cmd")}><Icon d={ICON.settings} /></button>
         <button className="icon-btn" aria-label="Chiudi" onClick={hide}><Icon d={ICON.close} /></button>
       </div>

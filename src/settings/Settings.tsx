@@ -7,6 +7,8 @@ import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { AiError, listModels, testConnection } from "../lib/ai";
 import { PROVIDERS, providerInfo } from "../lib/providers";
+import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
+import HotkeyRecorder from "./HotkeyRecorder";
 import { deleteSecret, getSecret, setSecret } from "../lib/secrets";
 import {
   ANTHROPIC_MODELS,
@@ -46,6 +48,7 @@ export default function Settings() {
 
   const save = async () => {
     await saveSettings(s);
+    await applyHotkeys(s).catch(() => []);
     if (pendingKey && pendingKey.key.trim()) {
       await setSecret(pendingKey.provider, pendingKey.key.trim());
       setPendingKey(null);
@@ -294,33 +297,47 @@ function AccountTab({ s, update, onPendingKey }: { s: SettingsModel; update: (p:
 }
 
 function HotkeyTab({ s, update }: { s: SettingsModel; update: (p: Partial<SettingsModel>) => void }) {
-  const [draft, setDraft] = useState(s.hotkey);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const apply = async () => {
+  const change = async (shortcut: string) => {
+    const next = { ...s, hotkey: shortcut };
+    update({ hotkey: shortcut });
     try {
-      await invoke("set_hotkey", { hotkey: draft.trim() });
-      update({ hotkey: draft.trim() });
-      setStatus({ ok: true, text: "Scorciatoia attiva. Ricorda di salvare." });
+      const failed = await applyHotkeys(next);
+      if (failed.includes("open")) {
+        setStatus({ ok: false, text: `${prettyShortcut(shortcut)} non è disponibile: probabilmente la usa già un'altra app. Scegline un'altra.` });
+      } else {
+        setStatus({ ok: true, text: `${prettyShortcut(shortcut)} è attiva. Premi Salva per tenerla.` });
+      }
     } catch (err) {
-      setStatus({ ok: false, text: `Combinazione non valida: ${String(err)}` });
+      setStatus({ ok: false, text: String(err) });
     }
   };
+
+  const withShortcut = s.actions.filter((a) => a.shortcut);
 
   return (
     <>
       <div>
         <h1>Scorciatoie</h1>
-        <div className="lead">La hotkey globale apre il popup sopra qualsiasi finestra e legge la clipboard in quel momento.</div>
+        <div className="lead">La hotkey globale apre il popup sopra qualsiasi finestra e legge la clipboard in quel momento. Clicca sul campo e premi la combinazione che vuoi.</div>
       </div>
       <div className="field">
-        <label htmlFor="hk">Hotkey globale</label>
-        <div className="btn-row">
-          <input id="hk" className="mono" value={draft} onChange={(e) => setDraft(e.target.value)} style={{ width: 260 }} />
-          <button className="btn primary" onClick={() => void apply()}>Applica</button>
-        </div>
+        <label>Apri Hopper</label>
+        <HotkeyRecorder value={s.hotkey} onChange={(sc) => void change(sc)} />
         {status ? <div className={status.ok ? "inline-ok" : "inline-err"}>{status.text}</div> : null}
-        <div className="help">Formato: tasti separati da +. Esempi: Alt+Space, CommandOrControl+Shift+K, Ctrl+Alt+A.</div>
+        <div className="help">Serve almeno un modificatore (⌘, ⌃, ⌥ o ⇧), oppure un tasto funzione. Alcune combinazioni sono riservate dal sistema o da altre app.</div>
+      </div>
+      <div className="field">
+        <label>Azioni rapide con scorciatoia</label>
+        {withShortcut.length ? (
+          <div className="shortcut-list">
+            {withShortcut.map((a) => (
+              <div key={a.id} className="shortcut-row"><span>{a.label}</span><span className="kbd">{prettyShortcut(a.shortcut!)}</span></div>
+            ))}
+          </div>
+        ) : null}
+        <div className="help">Ogni azione rapida può avere la sua combinazione: apre il popup ed esegue subito l'azione sul testo copiato. Si impostano in Azioni rapide.</div>
       </div>
       <div className="field">
         <label>Nel popup</label>
@@ -385,6 +402,11 @@ function ActionsTab({ s, update }: { s: SettingsModel; update: (p: Partial<Setti
             <div className="field">
               <label htmlFor="ap">Prompt</label>
               <textarea id="ap" rows={7} className="mono" value={action.prompt} onChange={(e) => patch({ prompt: e.target.value })} />
+            </div>
+            <div className="field">
+              <label>Scorciatoia globale</label>
+              <HotkeyRecorder value={action.shortcut ?? ""} onChange={(sc) => patch({ shortcut: sc || undefined })} clearable placeholder="Nessuna" />
+              <div className="help">Premila in qualsiasi app: apre il popup ed esegue questa azione sul testo copiato. Attiva dopo Salva.</div>
             </div>
             <div className="field">
               <label htmlFor="ao">Dopo la risposta</label>

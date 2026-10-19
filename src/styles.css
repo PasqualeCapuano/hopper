@@ -313,3 +313,17 @@ input, textarea { caret-color: var(--accent); accent-color: var(--accent); }
 .actions-list button .num { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
 .actions-editor { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .toggle { display: flex; align-items: center; gap: 10px; }
+
+/* hotkey recorder */
+.hotkey-recorder {
+  display: inline-flex; align-items: center; gap: 12px; height: 40px; padding: 0 14px; min-width: 260px;
+  border: 1px solid var(--hairline); border-radius: 12px; background: var(--field); color: var(--ink);
+  font-family: var(--mono); font-size: 14px; box-shadow: inset 0 1px 0 var(--glass-edge-soft);
+  transition: border-color 140ms ease, box-shadow 140ms ease, background 140ms ease;
+}
+.hotkey-recorder .hint-small { font-family: var(--font); font-size: 11.5px; color: var(--muted); margin-left: auto; }
+.hotkey-recorder.empty { color: var(--muted); }
+.hotkey-recorder:hover { background: var(--field-focus); }
+.hotkey-recorder.recording { border-color: var(--accent); box-shadow: inset 0 1px 0 var(--glass-edge-soft), 0 0 0 3px var(--accent-soft); color: var(--accent-ink); }
+.shortcut-list { display: flex; flex-direction: column; gap: 6px; max-width: 420px; }
+.shortcut-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 10px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--glass-2); }
