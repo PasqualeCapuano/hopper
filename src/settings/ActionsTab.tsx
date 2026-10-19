@@ -1,15 +1,14 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import { AiError, streamChat } from "../lib/ai";
 import { ACTION_ICONS, ICON_NAMES } from "../lib/icons";
-import { ACTION_TEMPLATES } from "../lib/templates";
-import { buildPrompt, DEFAULT_ACTIONS, type QuickAction, type Settings } from "../lib/settings";
+import { actionTemplates } from "../lib/templates";
+import { textToken } from "../lib/i18n";
+import { buildPrompt, defaultActions, type QuickAction, type Settings } from "../lib/settings";
 import HotkeyRecorder from "./HotkeyRecorder";
 
 const POPUP_SLOTS = 6;
-const VARIABLES = [
-  { token: "{{testo}}", desc: "il testo copiato" },
-];
 
 function Icon({ name, size = 16 }: { name?: string; size?: number }) {
   const d = (name && ACTION_ICONS[name]) || ACTION_ICONS.sparkles;
@@ -21,6 +20,7 @@ function Icon({ name, size = 16 }: { name?: string; size?: number }) {
 }
 
 export default function ActionsTab({ s, update }: { s: Settings; update: (p: Partial<Settings>) => void }) {
+  const { t } = useTranslation();
   const [selected, setSelected] = useState(0);
   const [dragging, setDragging] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
@@ -37,8 +37,8 @@ export default function ActionsTab({ s, update }: { s: Settings; update: (p: Par
   const add = (base?: Partial<QuickAction>) => {
     const a: QuickAction = {
       id: `custom-${Date.now()}`,
-      label: base?.label ?? "Nuova azione",
-      prompt: base?.prompt ?? "Scrivi qui cosa fare con il testo.\n\n{{testo}}",
+      label: base?.label ?? t("act.new"),
+      prompt: base?.prompt ?? t("act.newPrompt", { token: textToken() }),
       output: base?.output ?? "show",
       icon: base?.icon ?? "sparkles",
       shortcut: undefined,
@@ -49,7 +49,7 @@ export default function ActionsTab({ s, update }: { s: Settings; update: (p: Par
   };
   const duplicate = () => {
     if (!action) return;
-    const copy: QuickAction = { ...action, id: `custom-${Date.now()}`, label: `${action.label} (copia)`, shortcut: undefined };
+    const copy: QuickAction = { ...action, id: `custom-${Date.now()}`, label: `${action.label} ${t("act.copySuffix")}`, shortcut: undefined };
     const actions = [...s.actions];
     actions.splice(selected + 1, 0, copy);
     setActions(actions);
@@ -85,7 +85,7 @@ export default function ActionsTab({ s, update }: { s: Settings; update: (p: Par
     abortRef.current = controller;
     let clip = "";
     try { clip = (await readText()) ?? ""; } catch { clip = ""; }
-    if (!clip.trim()) { setPreview({ text: "", busy: false, error: "La clipboard è vuota: copia un testo e riprova." }); return; }
+    if (!clip.trim()) { setPreview({ text: "", busy: false, error: t("act.clipEmpty") }); return; }
     setPreview({ text: "", busy: true });
     let acc = "";
     try {
@@ -100,19 +100,21 @@ export default function ActionsTab({ s, update }: { s: Settings; update: (p: Par
     }
   };
 
-  const groups = Array.from(new Set(ACTION_TEMPLATES.map((t) => t.group)));
+  const templates = actionTemplates(s.locale);
+  const groups = Array.from(new Set(templates.map((tpl) => tpl.group)));
+  const variables = [{ token: textToken(), desc: t("act.varDesc") }];
 
   return (
     <>
       <div>
-        <h1>Azioni rapide</h1>
-        <div className="lead">Le prime {POPUP_SLOTS} compaiono nel popup con i tasti 1–{POPUP_SLOTS}. Le altre si lanciano solo con la loro scorciatoia. Trascina per riordinare.</div>
+        <h1>{t("act.title")}</h1>
+        <div className="lead">{t("act.lead", { n: POPUP_SLOTS })}</div>
       </div>
       <div className="actions-layout">
         <div className="actions-list">
           {s.actions.map((a, i) => (
             <div key={a.id}>
-              {i === POPUP_SLOTS ? <div className="actions-sep"><span>solo con scorciatoia</span></div> : null}
+              {i === POPUP_SLOTS ? <div className="actions-sep"><span>{t("act.sepShortcutOnly")}</span></div> : null}
               <button
                 className={"action-item" + (i === selected ? " active" : "") + (over === i && dragging !== null && dragging !== i ? " over" : "") + (dragging === i ? " dragging" : "")}
                 draggable
@@ -131,27 +133,27 @@ export default function ActionsTab({ s, update }: { s: Settings; update: (p: Par
             </div>
           ))}
           <div className="btn-row" style={{ marginTop: 6 }}>
-            <button className="btn small" onClick={() => add()}>+ Nuova</button>
-            <button className="btn small" onClick={() => setLibrary(!library)}>Libreria</button>
+            <button className="btn small" onClick={() => add()}>{t("act.add")}</button>
+            <button className="btn small" onClick={() => setLibrary(!library)}>{t("act.library")}</button>
             <div className="spacer" />
-            <button className="btn small" onClick={() => { setActions(DEFAULT_ACTIONS); setSelected(0); }}>Ripristina</button>
+            <button className="btn small" onClick={() => { setActions(defaultActions(s.locale)); setSelected(0); }}>{t("act.reset")}</button>
           </div>
         </div>
 
         {library ? (
           <div className="actions-editor">
             <div className="field">
-              <label>Libreria di azioni</label>
-              <div className="help">Clicca per aggiungerla alle tue azioni. Poi la modifichi come vuoi.</div>
+              <label>{t("act.libTitle")}</label>
+              <div className="help">{t("act.libHelp")}</div>
             </div>
             {groups.map((g) => (
               <div key={g} className="field">
                 <label>{g}</label>
                 <div className="template-grid">
-                  {ACTION_TEMPLATES.filter((t) => t.group === g).map((t) => (
-                    <button key={t.id} className="template" onClick={() => add(t)} title={t.prompt}>
-                      <span className="action-icon"><Icon name={t.icon} /></span>
-                      <span>{t.label}</span>
+                  {templates.filter((tpl) => tpl.group === g).map((tpl) => (
+                    <button key={tpl.id} className="template" onClick={() => add(tpl)} title={tpl.prompt}>
+                      <span className="action-icon"><Icon name={tpl.icon} /></span>
+                      <span>{tpl.label}</span>
                     </button>
                   ))}
                 </div>
@@ -161,59 +163,59 @@ export default function ActionsTab({ s, update }: { s: Settings; update: (p: Par
         ) : action ? (
           <div className="actions-editor">
             <div className="field">
-              <label htmlFor="al">Nome</label>
+              <label htmlFor="al">{t("act.name")}</label>
               <div className="btn-row">
                 <div className="icon-picker">
                   {ICON_NAMES.map((n) => (
-                    <button key={n} className={"icon-choice" + (action.icon === n ? " active" : "")} onClick={() => patch({ icon: n })} aria-label={`Icona ${n}`}><Icon name={n} /></button>
+                    <button key={n} className={"icon-choice" + (action.icon === n ? " active" : "")} onClick={() => patch({ icon: n })} aria-label={t("act.iconAria", { n })}><Icon name={n} /></button>
                   ))}
                 </div>
               </div>
               <input id="al" value={action.label} onChange={(e) => patch({ label: e.target.value })} />
             </div>
             <div className="field">
-              <label htmlFor="ap">Prompt</label>
+              <label htmlFor="ap">{t("act.prompt")}</label>
               <textarea id="ap" ref={promptRef} rows={7} className="mono" value={action.prompt} onChange={(e) => patch({ prompt: e.target.value })} />
               <div className="help variables">
-                Variabili:
-                {VARIABLES.map((v) => (
+                {t("act.variables")}
+                {variables.map((v) => (
                   <button key={v.token} className="chip" onClick={() => insertVariable(v.token)} title={v.desc}>{v.token}</button>
                 ))}
-                <span>Senza variabile, il testo copiato viene aggiunto in fondo.</span>
+                <span>{t("act.varHelp")}</span>
               </div>
             </div>
             <div className="grid-2">
               <div className="field">
-                <label htmlFor="ao">Dopo la risposta</label>
+                <label htmlFor="ao">{t("act.after")}</label>
                 <select id="ao" value={action.output} onChange={(e) => patch({ output: e.target.value as QuickAction["output"] })}>
-                  <option value="show">Mostra nel popup</option>
-                  <option value="copy">Copia subito</option>
-                  <option value="paste">Incolla subito nell'app</option>
+                  <option value="show">{t("act.show")}</option>
+                  <option value="copy">{t("act.copyNow")}</option>
+                  <option value="paste">{t("act.pasteNow")}</option>
                 </select>
               </div>
               <div className="field">
-                <label>Scorciatoia globale</label>
-                <HotkeyRecorder value={action.shortcut ?? ""} onChange={(sc) => patch({ shortcut: sc || undefined })} clearable placeholder="Nessuna" />
+                <label>{t("act.shortcut")}</label>
+                <HotkeyRecorder value={action.shortcut ?? ""} onChange={(sc) => patch({ shortcut: sc || undefined })} clearable placeholder={t("act.none")} />
               </div>
             </div>
             <div className="field">
               <div className="btn-row">
-                <button className="btn small" onClick={() => void test()} disabled={preview?.busy}>Prova con la clipboard</button>
-                {preview?.busy ? <button className="btn small" onClick={() => abortRef.current?.abort()}>Annulla</button> : null}
+                <button className="btn small" onClick={() => void test()} disabled={preview?.busy}>{t("act.testClip")}</button>
+                {preview?.busy ? <button className="btn small" onClick={() => abortRef.current?.abort()}>{t("act.cancel")}</button> : null}
                 <div className="spacer" />
-                <button className="btn small" onClick={duplicate}>Duplica</button>
-                <button className="btn small danger" onClick={remove}>Elimina</button>
+                <button className="btn small" onClick={duplicate}>{t("act.duplicate")}</button>
+                <button className="btn small danger" onClick={remove}>{t("act.delete")}</button>
               </div>
               {preview ? (
                 <div className="preview">
                   {preview.error ? <div className="inline-err">{preview.error}</div> : null}
-                  {preview.text ? <div className="preview-text">{preview.text}{preview.busy ? <span className="cursor" /> : null}</div> : preview.busy ? <div className="help">Sta scrivendo…</div> : null}
+                  {preview.text ? <div className="preview-text">{preview.text}{preview.busy ? <span className="cursor" /> : null}</div> : preview.busy ? <div className="help">{t("act.writing")}</div> : null}
                 </div>
               ) : null}
             </div>
           </div>
         ) : (
-          <div className="actions-editor"><div className="help">Nessuna azione. Aggiungine una o apri la libreria.</div></div>
+          <div className="actions-editor"><div className="help">{t("act.noActions")}</div></div>
         )}
       </div>
     </>

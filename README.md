@@ -84,9 +84,11 @@ If you have a **Claude Max** subscription, it includes a monthly API credit (100
 
 Drag the popup by its header to move it. It opens centred on the screen you are working on.
 
-**Quick actions** live in Settings → Quick actions. Each one is a prompt where `{{testo}}` stands for the copied text. You can choose what happens after the answer: show it, copy it right away, or paste it right away. The first six appear in the popup.
+**Quick actions** live in Settings → Quick actions. Each one is a prompt where `{{text}}` stands for the copied text (`{{testo}}` works too). You can choose what happens after the answer: show it, copy it right away, or paste it right away. The first six appear in the popup.
 
-**Your assistant** (Settings → Il tuo assistente) shapes every reply with a few choices instead of a prompt to write: your name and what you do, the language of the answers (same as the text, or a fixed one), tone (direct, warm, formal, casual), length, and the signature for messages written on your behalf. A free field is there for anything else it should know.
+**Your assistant** (Settings → Your assistant) shapes every reply with a few choices instead of a prompt to write: your name and what you do, the language of the answers (same as the text, or a fixed one), tone (direct, warm, formal, casual), length, and the signature for messages written on your behalf. A free field is there for anything else it should know.
+
+**Language**: the interface is in English by default. Switch to Italian in Settings → General; the built-in quick actions and the library follow. Other languages are one JSON file away, see `src/locales`.
 
 **Paste back** on macOS needs the Accessibility permission, because Hopper has to press ⌘V on your behalf. macOS asks once, the first time you use it. Everything else works without it.
 

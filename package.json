@@ -1,7 +1,7 @@
 {
   "name": "hopper",
   "private": true,
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -19,9 +19,11 @@
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-store": "^2.5.0",
     "@tauri-apps/plugin-updater": "^2.14.0",
+    "i18next": "^26.5.2",
     "openai": "^7.39.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-i18next": "^17.1.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",

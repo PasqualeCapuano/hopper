@@ -213,7 +213,7 @@ fn open_settings(app: &AppHandle) {
         return;
     }
     if let Ok(win) = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("index.html".into()))
-        .title("Hopper · Impostazioni")
+        .title("Hopper · Settings")
         .inner_size(900.0, 620.0)
         .min_inner_size(760.0, 520.0)
         .transparent(true)
@@ -221,6 +221,21 @@ fn open_settings(app: &AppHandle) {
     {
         apply_glass(&win, GlassKind::Window);
     }
+}
+
+/// Tray menu items, relabelled when the interface language changes.
+struct TrayItems(Mutex<Option<(MenuItem<tauri::Wry>, MenuItem<tauri::Wry>, PredefinedMenuItem<tauri::Wry>)>>);
+
+#[tauri::command]
+fn set_tray_labels(app: AppHandle, open: String, settings: String, quit: String) -> Result<(), String> {
+    let items = app.state::<TrayItems>();
+    let guard = items.0.lock().map_err(|e| e.to_string())?;
+    if let Some((o, s, q)) = guard.as_ref() {
+        o.set_text(&open).map_err(|e| e.to_string())?;
+        s.set_text(&settings).map_err(|e| e.to_string())?;
+        q.set_text(&quit).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -318,9 +333,9 @@ pub fn run() {
             }
 
             // Tray menu.
-            let open = MenuItem::with_id(app, "open", "Apri assistente", true, Some(DEFAULT_HOTKEY))?;
-            let settings = MenuItem::with_id(app, "settings", "Impostazioni…", true, None::<&str>)?;
-            let quit = PredefinedMenuItem::quit(app, Some("Esci"))?;
+            let open = MenuItem::with_id(app, "open", "Open assistant", true, Some(DEFAULT_HOTKEY))?;
+            let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
+            let quit = PredefinedMenuItem::quit(app, Some("Quit"))?;
             let menu = Menu::with_items(
                 app,
                 &[&open, &settings, &PredefinedMenuItem::separator(app)?, &quit],
@@ -338,6 +353,8 @@ pub fn run() {
                     _ => {}
                 })
                 .build(app)?;
+            // Kept so the frontend can relabel the menu in the chosen language.
+            app.manage(TrayItems(Mutex::new(Some((open, settings, quit)))));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -350,7 +367,8 @@ pub fn run() {
             show_popup_cmd,
             open_settings_cmd,
             hide_popup,
-            set_hotkeys
+            set_hotkeys,
+            set_tray_labels
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

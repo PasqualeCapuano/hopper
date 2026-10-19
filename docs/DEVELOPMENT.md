@@ -16,6 +16,10 @@ Liquid glass: finestra trasparente con vibrancy nativa (crate `window-vibrancy`,
 - `enigo` → simula ⌘V / Ctrl+V per "Incolla nell'app" (su macOS serve il permesso Accessibilità)
 - SDK ufficiali `@anthropic-ai/sdk` e `openai`, chiamati dalla webview con streaming. Tutti i provider tranne Anthropic passano dall'SDK OpenAI con `baseURL` del provider (catalogo in `src/lib/providers.ts`): OpenAI, Ollama, LM Studio, OpenRouter, Gemini, Mistral, Groq, DeepSeek, endpoint personalizzato
 
+## Lingue
+
+Interfaccia in inglese di default, italiano selezionabile in Impostazioni › Generale. Stringhe con **i18next** (`react-i18next` nei componenti, `t()` di `src/lib/i18n.ts` nel codice non React): un file JSON per lingua in `src/locales/`, chiavi piatte (`popup.copy`). Per aggiungere una lingua: copia `en.json`, traducilo, registralo in `src/lib/i18n.ts` (`resources` e `LOCALES`). Seguono la lingua anche le azioni rapide di default (`src/lib/settings.ts`), la libreria (`src/lib/templates.ts`), il system prompt (`src/lib/profile.ts`) e il menu della tray (`set_tray_labels` in Rust).
+
 ## Vincolo di prodotto
 
 Niente OAuth degli abbonamenti Claude Pro/Max o ChatGPT Plus: non è permesso alle app di terze parti. Si usa una API key a consumo, salvata in locale. Con Claude Max hai crediti API mensili inclusi (100 $ su Max 5x, 200 $ su Max 20x), richiedibili da console.anthropic.com.

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { prettyShortcut, shortcutFromEvent } from "../lib/hotkeys";
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 
 /** Click, press a combination, done. Esc cancels; Backspace clears when clearable. */
 export default function HotkeyRecorder({ value, onChange, clearable, placeholder }: Props) {
+  const { t } = useTranslation();
   const [recording, setRecording] = useState(false);
   const [held, setHeld] = useState<string[]>([]);
   const ref = useRef<HTMLButtonElement>(null);
@@ -54,8 +56,8 @@ export default function HotkeyRecorder({ value, onChange, clearable, placeholder
   }, [recording, clearable, onChange]);
 
   const label = recording
-    ? held.length ? `${held.join(" ")} …` : "Premi la combinazione…"
-    : value ? prettyShortcut(value) : (placeholder ?? "Nessuna");
+    ? held.length ? `${held.join(" ")} …` : t("rec.press")
+    : value ? prettyShortcut(value) : (placeholder ?? t("rec.none"));
 
   return (
     <button
@@ -64,10 +66,10 @@ export default function HotkeyRecorder({ value, onChange, clearable, placeholder
       className={"hotkey-recorder" + (recording ? " recording" : "") + (value ? "" : " empty")}
       onClick={() => setRecording(true)}
       onBlur={() => { setRecording(false); setHeld([]); }}
-      aria-label={recording ? "Registrazione scorciatoia" : `Scorciatoia: ${label}. Clicca per cambiarla`}
+      aria-label={recording ? t("rec.recording") : t("rec.aria", { label })}
     >
       <span>{label}</span>
-      {!recording ? <span className="hint-small">{value ? "clicca per cambiare" : "clicca per impostare"}</span> : <span className="hint-small">esc annulla{clearable ? " · ⌫ rimuove" : ""}</span>}
+      {!recording ? <span className="hint-small">{value ? t("rec.clickChange") : t("rec.clickSet")}</span> : <span className="hint-small">{t("rec.escCancel")}{clearable ? t("rec.bsClear") : ""}</span>}
     </button>
   );
 }

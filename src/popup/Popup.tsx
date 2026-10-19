@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -11,6 +12,7 @@ import { providerInfo } from "../lib/providers";
 import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import { ACTION_ICONS } from "../lib/icons";
 import { applyTheme } from "../lib/theme";
+import { applyTrayLabels } from "../lib/tray";
 import {
   buildPrompt,
   loadSettings,
@@ -45,10 +47,11 @@ function Icon({ d, size = 16 }: { d: string; size?: number }) {
 }
 
 export default function Popup() {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [clip, setClip] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("idle");
-  const [title, setTitle] = useState("Assistente");
+  const [title, setTitle] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [partial, setPartial] = useState("");
   const [busy, setBusy] = useState(false);
@@ -77,7 +80,7 @@ export default function Popup() {
     threadRef.current = null;
     setClip(text);
     setScreen("idle");
-    setTitle("Assistente");
+    setTitle(null);
     setMessages([]);
     setPartial("");
     setBusy(false);
@@ -94,6 +97,7 @@ export default function Popup() {
       void applyTheme(s.theme);
       // Saved bindings (hotkey + per-action shortcuts) win over the compiled-in default.
       void applyHotkeys(s).catch(() => {});
+      void applyTrayLabels(s.locale);
     });
     // Quiet update check at launch; failures (dev builds, offline) are ignored.
     void check().then((u) => { if (u) setUpdate(u); }).catch(() => {});
@@ -129,7 +133,7 @@ export default function Popup() {
       await writeText(text);
       setError({
         kind: "accessibility",
-        message: "macOS lo chiede una volta sola: Impostazioni › Privacy e sicurezza › Accessibilità. Intanto il testo è già copiato.",
+        message: "",
       });
       setScreen("error");
       return;
@@ -206,20 +210,20 @@ export default function Popup() {
 
   const openChat = useCallback(() => {
     if (messages.length === 0) {
-      threadRef.current = newThread(clip, "Chat");
-      setTitle("Chat");
+      threadRef.current = newThread(clip, t("popup.chat"));
+      setTitle(t("popup.chat"));
     }
     setScreen("chat");
     setTimeout(() => chatInputRef.current?.focus(), 30);
-  }, [messages.length, clip]);
+  }, [messages.length, clip, t]);
 
   const sendChat = useCallback(() => {
     const text = chatDraft.trim();
     if (!text || busy) return;
     setChatDraft("");
     const prompt = messages.length === 0 && clip ? `${text}\n\n---\n${clip}` : text;
-    void run(prompt, title === "Assistente" ? "Chat" : title, "show", "chat");
-  }, [chatDraft, busy, messages.length, clip, run, title]);
+    void run(prompt, title ?? t("popup.chat"), "show", "chat");
+  }, [chatDraft, busy, messages.length, clip, run, title, t]);
 
   const lastReply = messages.length && messages[messages.length - 1].role === "assistant" ? messages[messages.length - 1].content : "";
 
@@ -259,18 +263,18 @@ export default function Popup() {
   }, [update, updating]);
 
   const actions = settings?.actions.slice(0, 6) ?? [];
-  const providerLabel = settings ? `${providerInfo(settings.provider).name} · ${modelFor(settings) || "nessun modello"}` : "…";
+  const providerLabel = settings ? `${providerInfo(settings.provider).name} · ${modelFor(settings) || t("popup.noModel")}` : "…";
 
   return (
     <div className={"popup glass" + (entered ? " enter" : "")}>
       <div className="popup-header" data-tauri-drag-region>
         <div className="logo"><Icon d={ICON.logo} size={15} /></div>
-        <div className="title">{title}</div>
-        {screen !== "idle" && clip ? <div className="sub">· {clip.length} caratteri</div> : null}
+        <div className="title">{title ?? t("popup.assistant")}</div>
+        {screen !== "idle" && clip ? <div className="sub">· {t("popup.chars", { n: clip.length })}</div> : null}
         <div className="spacer" data-tauri-drag-region />
         {screen === "idle" ? <div className="kbd">{prettyShortcut(settings?.hotkey ?? "")}</div> : null}
-        <button className="icon-btn" aria-label="Impostazioni" onClick={() => void invoke("open_settings_cmd")}><Icon d={ICON.settings} /></button>
-        <button className="icon-btn" aria-label="Chiudi" onClick={hide}><Icon d={ICON.close} /></button>
+        <button className="icon-btn" aria-label={t("popup.settings")} onClick={() => void invoke("open_settings_cmd")}><Icon d={ICON.settings} /></button>
+        <button className="icon-btn" aria-label={t("popup.close")} onClick={hide}><Icon d={ICON.close} /></button>
       </div>
 
       {screen === "idle" && (
@@ -278,13 +282,13 @@ export default function Popup() {
           {clip ? (
             <div className="clip">
               <div className="clip-meta">
-                <span className="label">DALLA CLIPBOARD</span>
-                <span>{clip.length} caratteri</span>
+                <span className="label">{t("popup.fromClipboard")}</span>
+                <span>{t("popup.chars", { n: clip.length })}</span>
               </div>
               <div className="clip-text">{clip}</div>
             </div>
           ) : (
-            <div className="clip empty">Nessun testo copiato. Scrivi una richiesta qui sotto, oppure copia qualcosa e ripremi la hotkey.</div>
+            <div className="clip empty">{t("popup.empty")}</div>
           )}
           <div className="actions">
             {actions.map((a, i) => (
@@ -296,19 +300,19 @@ export default function Popup() {
             ))}
             <button className="action" onClick={openChat}>
               <span className="action-icon"><Icon d={ACTION_ICONS.chat} size={15} /></span>
-              <span>Chat libera</span>
+              <span>{t("popup.freeChat")}</span>
             </button>
           </div>
           <div className="input-row">
             <input
               ref={promptRef}
               className="text-input"
-              placeholder={clip ? "Oppure dimmi cosa fare con questo testo…" : "Chiedi qualcosa…"}
+              placeholder={clip ? t("popup.placeholderClip") : t("popup.placeholderAsk")}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") sendFree(); }}
             />
-            <button className="send" aria-label="Invia" onClick={sendFree} disabled={!draft.trim()}><Icon d={ICON.send} /></button>
+            <button className="send" aria-label={t("popup.send")} onClick={sendFree} disabled={!draft.trim()}><Icon d={ICON.send} /></button>
           </div>
         </>
       )}
@@ -321,18 +325,18 @@ export default function Popup() {
           </div>
           <div className="status">
             <span className={"dot" + (busy ? " busy" : "")} />
-            <span>{busy ? "Sta scrivendo…" : providerLabel}</span>
+            <span>{busy ? t("popup.writing") : providerLabel}</span>
             <div className="spacer" />
-            {notice === "copied" ? <span className="ok">Copiato nella clipboard</span> : null}
-            {notice === "pasted" ? <span className="ok">Incollato</span> : null}
-            {busy ? <span className="hint">esc annulla</span> : null}
+            {notice === "copied" ? <span className="ok">{t("popup.copied")}</span> : null}
+            {notice === "pasted" ? <span className="ok">{t("popup.pasted")}</span> : null}
+            {busy ? <span className="hint">{t("popup.escCancel")}</span> : null}
           </div>
           <div className="btn-row">
-            <button className="btn primary" disabled={busy} onClick={() => void copyText(lastReply)}>Copia <span className="kbd-hint">↵</span></button>
-            <button className="btn" disabled={busy} onClick={() => void pasteText(lastReply)}>Incolla nell'app <span className="kbd-hint">⌘↵</span></button>
-            <button className="btn" disabled={busy} onClick={openChat}>Continua in chat</button>
+            <button className="btn primary" disabled={busy} onClick={() => void copyText(lastReply)}>{t("popup.copy")} <span className="kbd-hint">↵</span></button>
+            <button className="btn" disabled={busy} onClick={() => void pasteText(lastReply)}>{t("popup.pasteInApp")} <span className="kbd-hint">⌘↵</span></button>
+            <button className="btn" disabled={busy} onClick={openChat}>{t("popup.continueChat")}</button>
             <div className="spacer" />
-            <button className="btn" disabled={busy} onClick={() => { const last = messages.filter((m) => m.role === "user").pop(); if (last) { setMessages(messages.slice(0, -2)); void run(last.content, title, "show", "result"); } }}>Rigenera</button>
+            <button className="btn" disabled={busy} onClick={() => { const last = messages.filter((m) => m.role === "user").pop(); if (last) { setMessages(messages.slice(0, -2)); void run(last.content, title ?? t("popup.assistant"), "show", "result"); } }}>{t("popup.regenerate")}</button>
           </div>
         </>
       )}
@@ -340,7 +344,7 @@ export default function Popup() {
       {screen === "chat" && (
         <>
           <div className="chat">
-            {clip ? <div className="ctx">Contesto: testo copiato · {clip.length} caratteri</div> : null}
+            {clip ? <div className="ctx">{t("popup.ctx", { n: clip.length })}</div> : null}
             {messages.map((m, i) => (
               <div key={i} className={m.role === "user" ? "msg-user" : "msg-ai"}>
                 {m.role === "user" ? m.content.split("\n\n---\n")[0] : m.content}
@@ -349,10 +353,10 @@ export default function Popup() {
             {busy ? <div className="msg-ai">{partial}<span className="cursor" /></div> : null}
             {!busy && lastReply ? (
               <div className="btn-row">
-                <button className="btn small" onClick={() => void copyText(lastReply)}>Copia</button>
-                <button className="btn small" onClick={() => void pasteText(lastReply)}>Incolla nell'app</button>
-                {notice === "copied" ? <span className="inline-ok">Copiato</span> : null}
-                {notice === "pasted" ? <span className="inline-ok">Incollato</span> : null}
+                <button className="btn small" onClick={() => void copyText(lastReply)}>{t("popup.copy")}</button>
+                <button className="btn small" onClick={() => void pasteText(lastReply)}>{t("popup.pasteInApp")}</button>
+                {notice === "copied" ? <span className="inline-ok">{t("popup.copiedShort")}</span> : null}
+                {notice === "pasted" ? <span className="inline-ok">{t("popup.pasted")}</span> : null}
               </div>
             ) : null}
             <div ref={chatEndRef} />
@@ -361,12 +365,12 @@ export default function Popup() {
             <input
               ref={chatInputRef}
               className="text-input"
-              placeholder="Scrivi un messaggio…"
+              placeholder={t("popup.chatPlaceholder")}
               value={chatDraft}
               onChange={(e) => setChatDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") sendChat(); }}
             />
-            <button className="send" aria-label="Invia" onClick={sendChat} disabled={busy || !chatDraft.trim()}><Icon d={ICON.send} /></button>
+            <button className="send" aria-label={t("popup.send")} onClick={sendChat} disabled={busy || !chatDraft.trim()}><Icon d={ICON.send} /></button>
           </div>
         </>
       )}
@@ -375,68 +379,68 @@ export default function Popup() {
         <div style={{ flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
           {error.kind === "accessibility" && (
             <div className="error-card warn">
-              <div className="h">Per incollare serve il permesso Accessibilità</div>
-              <div className="p">{error.message}</div>
+              <div className="h">{t("err.acc.title")}</div>
+              <div className="p">{t("err.acc.msg")}</div>
               <div className="btn-row">
-                <button className="btn small primary" onClick={() => void invoke("accessibility_prompt")}>Apri Privacy e sicurezza</button>
-                <button className="btn small" onClick={() => setScreen(messages.length ? "result" : "idle")}>Incollo io a mano</button>
+                <button className="btn small primary" onClick={() => void invoke("accessibility_prompt")}>{t("err.acc.open")}</button>
+                <button className="btn small" onClick={() => setScreen(messages.length ? "result" : "idle")}>{t("err.acc.manual")}</button>
               </div>
             </div>
           )}
           {error.kind === "no-key" && (
             <div className="error-card">
-              <div className="h">Nessuna API key configurata</div>
-              <div className="p">Aggiungi la chiave del provider nelle impostazioni. Resta sul tuo computer.</div>
+              <div className="h">{t("err.nokey.title")}</div>
+              <div className="p">{t("err.nokey.msg")}</div>
               <div className="btn-row">
-                <button className="btn small primary" onClick={() => void invoke("open_settings_cmd")}>Apri Impostazioni</button>
-                <button className="btn small" onClick={hide}>Chiudi</button>
+                <button className="btn small primary" onClick={() => void invoke("open_settings_cmd")}>{t("err.nokey.open")}</button>
+                <button className="btn small" onClick={hide}>{t("popup.close")}</button>
               </div>
             </div>
           )}
           {error.kind === "auth" && (
             <div className="error-card">
-              <div className="h">API key non valida o scaduta</div>
-              <div className="p">Il provider ha rifiutato la chiave (401). Controllala in Impostazioni › Account.</div>
+              <div className="h">{t("err.auth.title")}</div>
+              <div className="p">{t("err.auth.msg")}</div>
               <div className="btn-row">
-                <button className="btn small primary" onClick={() => void invoke("open_settings_cmd")}>Apri Account</button>
-                <button className="btn small" onClick={hide}>Chiudi</button>
+                <button className="btn small primary" onClick={() => void invoke("open_settings_cmd")}>{t("err.auth.open")}</button>
+                <button className="btn small" onClick={hide}>{t("popup.close")}</button>
               </div>
             </div>
           )}
           {error.kind === "rate-limit" && (
             <div className="error-card warn">
-              <div className="h">Troppe richieste</div>
-              <div className="p">Limite del provider raggiunto (429). Riprova tra {error.retryAfter ?? 20} secondi.</div>
+              <div className="h">{t("err.rate.title")}</div>
+              <div className="p">{t("err.rate.msg", { n: error.retryAfter ?? 20 })}</div>
               <div className="btn-row">
-                <button className="btn small" onClick={() => setScreen("idle")}>Torna indietro</button>
+                <button className="btn small" onClick={() => setScreen("idle")}>{t("err.back")}</button>
               </div>
             </div>
           )}
           {error.kind === "offline" && (
             <div className="error-card">
-              <div className="h">Sei offline</div>
-              <div className="p">Nessuna connessione al provider. Riprova quando torni in rete.</div>
+              <div className="h">{t("err.offline.title")}</div>
+              <div className="p">{t("err.offline.msg")}</div>
               <div className="btn-row">
-                <button className="btn small primary" onClick={() => { const last = messages.filter((m) => m.role === "user").pop(); if (last) { setMessages(messages.slice(0, -1)); void run(last.content, title, "show", "result"); } }}>Riprova</button>
-                <button className="btn small" onClick={hide}>Chiudi</button>
+                <button className="btn small primary" onClick={() => { const last = messages.filter((m) => m.role === "user").pop(); if (last) { setMessages(messages.slice(0, -1)); void run(last.content, title ?? t("popup.assistant"), "show", "result"); } }}>{t("err.retry")}</button>
+                <button className="btn small" onClick={hide}>{t("popup.close")}</button>
               </div>
             </div>
           )}
           {error.kind === "too-long" && (
             <div className="error-card warn">
-              <div className="h">Testo troppo lungo</div>
-              <div className="p">{error.message}. Copia una parte più corta e riprova.</div>
+              <div className="h">{t("err.toolong.title")}</div>
+              <div className="p">{t("err.toolong.msg", { msg: error.message })}</div>
               <div className="btn-row">
-                <button className="btn small" onClick={() => setScreen("idle")}>Torna indietro</button>
+                <button className="btn small" onClick={() => setScreen("idle")}>{t("err.back")}</button>
               </div>
             </div>
           )}
           {error.kind === "other" && (
             <div className="error-card">
-              <div className="h">Qualcosa è andato storto</div>
+              <div className="h">{t("err.other.title")}</div>
               <div className="p">{error.message}</div>
               <div className="btn-row">
-                <button className="btn small" onClick={() => setScreen("idle")}>Torna indietro</button>
+                <button className="btn small" onClick={() => setScreen("idle")}>{t("err.back")}</button>
               </div>
             </div>
           )}
@@ -447,12 +451,12 @@ export default function Popup() {
         <span className="pill"><span className="dot" />{providerLabel}</span>
         {update ? (
           <button className="pill update" onClick={() => void installUpdate()} disabled={updating}>
-            {updating ? "Aggiorno…" : `v${update.version} disponibile · Installa`}
+            {updating ? t("popup.updating") : t("popup.updateAvailable", { v: update.version })}
           </button>
         ) : null}
         <div className="spacer" />
         <span className="hint">
-          {screen === "idle" ? "1–6 azione · ↵ invia · esc chiudi" : screen === "result" ? "↵ copia · ⌘↵ incolla · esc chiudi" : "↵ invia · esc chiudi"}
+          {screen === "idle" ? t("popup.hintIdle") : screen === "result" ? t("popup.hintResult") : t("popup.hintChat")}
         </span>
       </div>
     </div>

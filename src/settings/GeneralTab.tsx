@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { appDataDir } from "@tauri-apps/api/path";
@@ -8,7 +9,9 @@ import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { clearThreads, listThreads } from "../lib/history";
 import { applyTheme, type Theme } from "../lib/theme";
-import type { Settings } from "../lib/settings";
+import { LOCALES, setLocale, type Locale } from "../lib/i18n";
+import { applyTrayLabels } from "../lib/tray";
+import { translateDefaultActions, type Settings } from "../lib/settings";
 
 const REPO = "https://github.com/PasqualeCapuano/hopper";
 const IS_MAC = navigator.userAgent.includes("Mac");
@@ -25,6 +28,7 @@ function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: 
 }
 
 export default function GeneralTab({ s, update }: { s: Settings; update: (p: Partial<Settings>) => void }) {
+  const { t } = useTranslation();
   const [auto, setAuto] = useState(s.autostart);
   const [acc, setAcc] = useState<boolean | null>(null);
   const [version, setVersion] = useState("");
@@ -38,7 +42,7 @@ export default function GeneralTab({ s, update }: { s: Settings; update: (p: Par
     void invoke<boolean>("accessibility_granted").then(setAcc);
     void getVersion().then(setVersion).catch(() => {});
     void appDataDir().then(setDataDir).catch(() => {});
-    void listThreads().then((t) => setThreads(t.length)).catch(() => setThreads(0));
+    void listThreads().then((th) => setThreads(th.length)).catch(() => setThreads(0));
   }, []);
 
   const toggleAuto = async (v: boolean) => {
@@ -52,21 +56,29 @@ export default function GeneralTab({ s, update }: { s: Settings; update: (p: Par
     }
   };
 
-  const setTheme = (t: Theme) => {
-    update({ theme: t });
-    void applyTheme(t);
+  const setTheme = (th: Theme) => {
+    update({ theme: th });
+    void applyTheme(th);
+  };
+
+  const changeLocale = (locale: Locale) => {
+    if (locale === s.locale) return;
+    setLocale(locale);
+    // Built-in actions the user never touched follow the language; the tray menu too.
+    update({ locale, actions: translateDefaultActions(s.actions, s.locale, locale) });
+    void applyTrayLabels(locale);
   };
 
   const checkUpdates = async () => {
-    setUpd("Controllo…");
+    setUpd(t("gen.checking"));
     try {
       const u = await check();
-      if (!u) { setUpd("Hai già l'ultima versione."); return; }
-      setUpd(`Scarico la versione ${u.version}…`);
+      if (!u) { setUpd(t("gen.upToDate")); return; }
+      setUpd(t("gen.downloading", { v: u.version }));
       await u.downloadAndInstall();
       await relaunch();
     } catch (err) {
-      setUpd(`Controllo non riuscito: ${String(err)}`);
+      setUpd(t("gen.checkFailed", { err: String(err) }));
     }
   };
 
@@ -85,73 +97,83 @@ export default function GeneralTab({ s, update }: { s: Settings; update: (p: Par
   return (
     <>
       <div>
-        <h1>Generale</h1>
-        <div className="lead">Hopper vive nella barra dei menu. Nessun server: testi, chiavi e cronologia restano sul tuo computer.</div>
+        <h1>{t("gen.title")}</h1>
+        <div className="lead">{t("gen.lead")}</div>
       </div>
 
       <section className="section">
-        <h2>Avvio</h2>
-        <Switch checked={auto} onChange={(v) => void toggleAuto(v)} label="Avvia Hopper al login" />
-        <div className="help">Resta in attesa della hotkey senza finestre aperte. Puoi chiuderla in qualsiasi momento dal menu nella barra.</div>
+        <h2>{t("gen.language")}</h2>
+        <div className="segmented" role="radiogroup" aria-label={t("gen.language")}>
+          {LOCALES.map((l) => (
+            <button key={l.id} role="radio" aria-checked={s.locale === l.id} className={s.locale === l.id ? "active" : ""} onClick={() => changeLocale(l.id)}>{l.label}</button>
+          ))}
+        </div>
+        <div className="help">{t("gen.languageHelp")}</div>
       </section>
 
       <section className="section">
-        <h2>Aspetto</h2>
-        <div className="segmented" role="radiogroup" aria-label="Tema">
-          {([["system", "Sistema"], ["light", "Chiaro"], ["dark", "Scuro"]] as [Theme, string][]).map(([t, label]) => (
-            <button key={t} role="radio" aria-checked={s.theme === t} className={s.theme === t ? "active" : ""} onClick={() => setTheme(t)}>{label}</button>
+        <h2>{t("gen.startup")}</h2>
+        <Switch checked={auto} onChange={(v) => void toggleAuto(v)} label={t("gen.autostart")} />
+        <div className="help">{t("gen.autostartHelp")}</div>
+      </section>
+
+      <section className="section">
+        <h2>{t("gen.appearance")}</h2>
+        <div className="segmented" role="radiogroup" aria-label={t("gen.appearance")}>
+          {(["system", "light", "dark"] as Theme[]).map((th) => (
+            <button key={th} role="radio" aria-checked={s.theme === th} className={s.theme === th ? "active" : ""} onClick={() => setTheme(th)}>{t(`theme.${th}`)}</button>
           ))}
         </div>
-        <div className="help">Il popup è traslucido e lascia intravedere ciò che c'è sotto. "Sistema" segue l'aspetto di macOS o Windows.</div>
+        <div className="help">{t("gen.themeHelp")}</div>
       </section>
 
       {IS_MAC ? (
         <section className="section">
-          <h2>Permessi</h2>
+          <h2>{t("gen.permissions")}</h2>
           <div className="status-row">
-            <span>Accessibilità</span>
-            <span className={"status-pill" + (acc ? " ok" : acc === false ? " warn" : "")}>{acc === null ? "…" : acc ? "Concesso" : "Non concesso"}</span>
-            {acc === false ? <button className="btn small" onClick={() => void requestAccessibility()}>Richiedi</button> : null}
+            <span>{t("gen.accessibility")}</span>
+            <span className={"status-pill" + (acc ? " ok" : acc === false ? " warn" : "")}>{acc === null ? "…" : acc ? t("gen.granted") : t("gen.notGranted")}</span>
+            {acc === false ? <button className="btn small" onClick={() => void requestAccessibility()}>{t("gen.request")}</button> : null}
           </div>
-          <div className="help">Serve solo per "Incolla nell'app": Hopper preme ⌘V al posto tuo. Tutto il resto funziona senza. Si concede in Impostazioni di Sistema › Privacy e sicurezza › Accessibilità.</div>
+          <div className="help">{t("gen.accHelp")}</div>
         </section>
       ) : null}
 
       <section className="section">
-        <h2>Aggiornamenti</h2>
+        <h2>{t("gen.updates")}</h2>
         <div className="status-row">
-          <span>Versione installata</span>
+          <span>{t("gen.installed")}</span>
           <span className="status-pill">{version ? `v${version}` : "…"}</span>
-          <button className="btn small" onClick={() => void checkUpdates()}>Controlla ora</button>
+          <button className="btn small" onClick={() => void checkUpdates()}>{t("gen.checkNow")}</button>
           {upd ? <span className="help">{upd}</span> : null}
         </div>
-        <div className="help">Hopper controlla da sola all'avvio e ti avvisa nel popup. Gli aggiornamenti arrivano da GitHub e sono firmati.</div>
+        <div className="help">{t("gen.updatesHelp")}</div>
       </section>
 
       <section className="section">
-        <h2>Dati</h2>
+        <h2>{t("gen.data")}</h2>
         <div className="status-row">
-          <span>Cronologia</span>
-          <span className="status-pill">{threads === null ? "…" : `${threads} thread`}</span>
-          <button className="btn small" onClick={() => void wipeHistory()} disabled={!threads}>Cancella</button>
-          {cleared ? <span className="inline-ok">Cronologia cancellata</span> : null}
+          <span>{t("gen.history")}</span>
+          <span className="status-pill">{threads === null ? "…" : t("gen.threads", { n: threads })}</span>
+          <button className="btn small" onClick={() => void wipeHistory()} disabled={!threads}>{t("gen.clear")}</button>
+          {cleared ? <span className="inline-ok">{t("gen.cleared")}</span> : null}
         </div>
-        <div className="help">Gli ultimi 30 thread restano in locale e si riaprono da "Continua in chat".</div>
+        <div className="help">{t("gen.historyHelp")}</div>
         <div className="status-row">
-          <span>Cartella dei dati</span>
+          <span>{t("gen.dataFolder")}</span>
           <code className="path">{dataDir || "…"}</code>
-          <button className="btn small" onClick={() => void openPath(dataDir)} disabled={!dataDir}>Apri</button>
+          <button className="btn small" onClick={() => void openPath(dataDir)} disabled={!dataDir}>{t("gen.open")}</button>
         </div>
-        <div className="help">Contiene impostazioni, cronologia e chiavi (leggibili solo dal tuo utente). Cancellarla azzera tutto.</div>
+        <div className="help">{t("gen.dataHelp")}</div>
       </section>
 
       <section className="section">
-        <h2>Informazioni</h2>
-        <div className="help">Hopper è open source con licenza MIT. Fatta da Pasquale Capuano con Tauri, Rust e React.</div>
+        <h2>{t("gen.about")}</h2>
+        <div className="help">{t("gen.aboutText")}</div>
         <div className="btn-row">
-          <button className="btn small" onClick={() => void openUrl(REPO)}>Codice su GitHub</button>
-          <button className="btn small" onClick={() => void openUrl(`${REPO}/issues/new`)}>Segnala un problema</button>
-          <button className="btn small" onClick={() => void openUrl(`${REPO}/releases`)}>Novità delle versioni</button>
+          <button className="btn small" onClick={() => void openUrl(REPO)}>{t("gen.github")}</button>
+          <button className="btn small" onClick={() => void openUrl(`${REPO}/issues/new`)}>{t("gen.report")}</button>
+          <button className="btn small" onClick={() => void openUrl(`${REPO}/releases`)}>{t("gen.releases")}</button>
         </div>
       </section>
     </>

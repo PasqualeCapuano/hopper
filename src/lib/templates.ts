@@ -1,7 +1,55 @@
+import { getLocale, type Locale } from "./i18n";
 import type { QuickAction } from "./settings";
 
-/** Ready-made actions the user can add from the library. */
-export const ACTION_TEMPLATES: (Omit<QuickAction, "id"> & { id: string; group: string })[] = [
+export type ActionTemplate = Omit<QuickAction, "id"> & { id: string; group: string };
+
+/** Ready-made actions the user can add from the library, in the interface language. */
+export function actionTemplates(locale: Locale = getLocale()): ActionTemplate[] {
+  return locale === "it" ? TEMPLATES_IT : TEMPLATES_EN;
+}
+
+const TEMPLATES_EN: ActionTemplate[] = [
+  { id: "tpl-shorter", group: "Rewrite", label: "Shorter", icon: "shrink", output: "show",
+    prompt: "Rewrite the text shorter, at most half the length, without losing the important information. Same language and tone. Reply with the text only.\n\n{{text}}" },
+  { id: "tpl-longer", group: "Rewrite", label: "Longer", icon: "expand", output: "show",
+    prompt: "Expand the text with useful details and context, without inventing facts. Same language and tone. Reply with the text only.\n\n{{text}}" },
+  { id: "tpl-formal", group: "Rewrite", label: "More formal", icon: "pen", output: "show",
+    prompt: "Rewrite the text in a formal, professional tone, in the same language. Reply with the text only.\n\n{{text}}" },
+  { id: "tpl-casual", group: "Rewrite", label: "More casual", icon: "smile", output: "show",
+    prompt: "Rewrite the text in a friendly, direct tone, as if to a colleague, in the same language. Reply with the text only.\n\n{{text}}" },
+  { id: "tpl-bullets", group: "Rewrite", label: "Bullet points", icon: "bullets", output: "show",
+    prompt: "Turn the text into a clear bulleted list, one point per idea, in the same language. Reply with the list only.\n\n{{text}}" },
+  { id: "tpl-italian", group: "Languages", label: "Translate to Italian", icon: "globe", output: "show",
+    prompt: "Translate the text into natural Italian, keeping tone and formatting. Reply with the translation only.\n\n{{text}}" },
+  { id: "tpl-spanish", group: "Languages", label: "Translate to Spanish", icon: "globe", output: "show",
+    prompt: "Translate the text into natural Spanish, keeping tone and formatting. Reply with the translation only.\n\n{{text}}" },
+  { id: "tpl-arabic", group: "Languages", label: "Translate to Arabic", icon: "globe", output: "show",
+    prompt: "Translate the text into Modern Standard Arabic, keeping tone and formatting. Reply with the translation only.\n\n{{text}}" },
+  { id: "tpl-todos", group: "Extract", label: "To-dos", icon: "todo", output: "show",
+    prompt: "Extract every action, request and deadline from the text as a to-do list, with who has to do it and by when if stated. In the language of the text.\n\n{{text}}" },
+  { id: "tpl-subject", group: "Extract", label: "Email subject", icon: "mail", output: "copy",
+    prompt: "Write an email subject of at most 8 words for this text, in its language. Reply with the subject only.\n\n{{text}}" },
+  { id: "tpl-keypoints", group: "Extract", label: "Key points", icon: "hash", output: "show",
+    prompt: "List the 3–5 key points of the text, one line each, in its language.\n\n{{text}}" },
+  { id: "tpl-decline", group: "Reply", label: "Say no", icon: "reply", output: "show",
+    prompt: "Write a polite but clear reply that declines the request in the text, in the same language, at most 5 lines. Reply with the message only.\n\n{{text}}" },
+  { id: "tpl-ack", group: "Reply", label: "Got it, will update you", icon: "reply", output: "show",
+    prompt: "Write a short reply that confirms receipt of the message and promises an update soon, in the same language, at most 3 lines. Reply with the message only.\n\n{{text}}" },
+  { id: "tpl-critique", group: "Analyze", label: "Weak points", icon: "search", output: "show",
+    prompt: "Read the text as a strict reviewer: list the weak points, ambiguities and logical errors, with a suggestion for each. In the language of the text.\n\n{{text}}" },
+  { id: "tpl-eli5", group: "Analyze", label: "Explain it simply", icon: "question", output: "show",
+    prompt: "Explain the text to someone who knows nothing about the subject, with a concrete example, at most 6 lines.\n\n{{text}}" },
+  { id: "tpl-code", group: "Code", label: "Explain the code", icon: "code", output: "show",
+    prompt: "Explain what this code does, line by line where needed, and point out any bugs or risks.\n\n{{text}}" },
+  { id: "tpl-commit", group: "Code", label: "Commit message", icon: "code", output: "copy",
+    prompt: "Write a commit message in English for this change: an imperative title line under 60 characters, a blank line, then 1–3 lines of explanation. Reply with the message only.\n\n{{text}}" },
+  { id: "tpl-hashtags", group: "Social", label: "Hashtags", icon: "tag", output: "copy",
+    prompt: "Suggest 10 relevant hashtags for this text, from most specific to most generic, separated by spaces. Reply with the hashtags only.\n\n{{text}}" },
+  { id: "tpl-hook", group: "Social", label: "Hook for a reel", icon: "sparkles", output: "show",
+    prompt: "Write 5 one-line hooks for a reel based on this text: they must stop the scroll in the first 2 seconds.\n\n{{text}}" },
+];
+
+const TEMPLATES_IT: ActionTemplate[] = [
   { id: "tpl-shorter", group: "Riscrivi", label: "Più corto", icon: "shrink", output: "show",
     prompt: "Riscrivi il testo più corto, al massimo metà della lunghezza, senza perdere le informazioni importanti. Stessa lingua e stesso tono. Rispondi solo con il testo.\n\n{{testo}}" },
   { id: "tpl-longer", group: "Riscrivi", label: "Più lungo", icon: "expand", output: "show",
@@ -14,6 +62,8 @@ export const ACTION_TEMPLATES: (Omit<QuickAction, "id"> & { id: string; group: s
     prompt: "Trasforma il testo in un elenco puntato chiaro, un punto per idea, nella stessa lingua. Rispondi solo con l'elenco.\n\n{{testo}}" },
   { id: "tpl-english", group: "Lingue", label: "Traduci in inglese", icon: "globe", output: "show",
     prompt: "Traduci il testo in inglese naturale, mantenendo tono e formattazione. Rispondi solo con la traduzione.\n\n{{testo}}" },
+  { id: "tpl-spanish", group: "Lingue", label: "Traduci in spagnolo", icon: "globe", output: "show",
+    prompt: "Traduci il testo in spagnolo naturale, mantenendo tono e formattazione. Rispondi solo con la traduzione.\n\n{{testo}}" },
   { id: "tpl-arabic", group: "Lingue", label: "Traduci in arabo", icon: "globe", output: "show",
     prompt: "Traduci il testo in arabo standard moderno, mantenendo tono e formattazione. Rispondi solo con la traduzione.\n\n{{testo}}" },
   { id: "tpl-todos", group: "Estrai", label: "Cose da fare", icon: "todo", output: "show",
@@ -23,7 +73,7 @@ export const ACTION_TEMPLATES: (Omit<QuickAction, "id"> & { id: string; group: s
   { id: "tpl-keypoints", group: "Estrai", label: "Punti chiave", icon: "hash", output: "show",
     prompt: "Elenca i 3–5 punti chiave del testo, una riga ciascuno, nella sua lingua.\n\n{{testo}}" },
   { id: "tpl-decline", group: "Rispondi", label: "Rispondi di no", icon: "reply", output: "show",
-    prompt: "Scrivi una risposta cortese ma chiara che declina la richiesta contenuta nel testo, nella stessa lingua, massimo 5 righe. Firma: Pasquale. Rispondi solo con il messaggio.\n\n{{testo}}" },
+    prompt: "Scrivi una risposta cortese ma chiara che declina la richiesta contenuta nel testo, nella stessa lingua, massimo 5 righe. Rispondi solo con il messaggio.\n\n{{testo}}" },
   { id: "tpl-ack", group: "Rispondi", label: "Ricevuto, ti aggiorno", icon: "reply", output: "show",
     prompt: "Scrivi una breve risposta che conferma la ricezione del messaggio e promette un aggiornamento a breve, nella stessa lingua, massimo 3 righe. Rispondi solo con il messaggio.\n\n{{testo}}" },
   { id: "tpl-critique", group: "Analizza", label: "Punti deboli", icon: "search", output: "show",

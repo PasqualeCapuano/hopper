@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { getSecret } from "./secrets";
 import { providerInfo } from "./providers";
+import { t } from "./i18n";
 import { baseUrlFor, modelFor, systemPromptFor, type Settings } from "./settings";
 
 export interface ChatMessage {
@@ -22,28 +23,28 @@ export class AiError extends Error {
 }
 
 function mapError(err: unknown, settings?: Settings): AiError {
-  const offline = settings ? providerInfo(settings.provider).offlineHint : "Nessuna connessione";
+  const offline = settings ? providerInfo(settings.provider).offlineHint : t("ai.noConn");
   if (err instanceof AiError) return err;
-  if (err instanceof DOMException && err.name === "AbortError") return new AiError("aborted", "Annullato");
+  if (err instanceof DOMException && err.name === "AbortError") return new AiError("aborted", t("ai.aborted"));
 
   if (err instanceof Anthropic.AuthenticationError || err instanceof OpenAI.AuthenticationError) {
-    return new AiError("auth", "API key non valida o scaduta");
+    return new AiError("auth", t("ai.auth"));
   }
   if (err instanceof Anthropic.RateLimitError || err instanceof OpenAI.RateLimitError) {
     const header = err.headers?.get?.("retry-after");
     const secs = header ? Number.parseInt(String(header), 10) : NaN;
-    return new AiError("rate-limit", "Troppe richieste", Number.isFinite(secs) ? secs : 20);
+    return new AiError("rate-limit", t("ai.rate"), Number.isFinite(secs) ? secs : 20);
   }
   if (err instanceof Anthropic.BadRequestError || err instanceof OpenAI.BadRequestError) {
     const msg = err.message || "";
-    if (/too long|context|tokens/i.test(msg)) return new AiError("too-long", "Testo troppo lungo per il modello");
+    if (/too long|context|tokens/i.test(msg)) return new AiError("too-long", t("ai.tooLong"));
     return new AiError("other", msg);
   }
   if (err instanceof Anthropic.APIConnectionError || err instanceof OpenAI.APIConnectionError) {
     return new AiError("offline", offline);
   }
   if (err instanceof Anthropic.APIError || err instanceof OpenAI.APIError) {
-    return new AiError("other", `Errore ${err.status ?? ""}: ${err.message}`.trim());
+    return new AiError("other", err.status ? t("ai.error", { status: err.status, msg: err.message }) : err.message);
   }
   return new AiError("other", err instanceof Error ? err.message : String(err));
 }
@@ -57,7 +58,7 @@ function mapError(err: unknown, settings?: Settings): AiError {
 async function compatibleClient(settings: Settings, apiKey: string | null, maxRetries: number): Promise<OpenAI> {
   const info = providerInfo(settings.provider);
   const baseURL = baseUrlFor(settings);
-  if (info.id === "custom" && !baseURL) throw new AiError("other", "Inserisci l'URL dell'endpoint nelle impostazioni");
+  if (info.id === "custom" && !baseURL) throw new AiError("other", t("ai.endpointMissing"));
   // The SDK refuses an empty key; local runtimes ignore whatever we send.
   return new OpenAI({ apiKey: apiKey || "hopper", baseURL: baseURL ?? undefined, dangerouslyAllowBrowser: true, maxRetries });
 }
@@ -65,7 +66,7 @@ async function compatibleClient(settings: Settings, apiKey: string | null, maxRe
 async function keyFor(settings: Settings): Promise<string | null> {
   const info = providerInfo(settings.provider);
   const apiKey = await getSecret(settings.provider);
-  if (info.needsKey && !apiKey) throw new AiError("no-key", "Nessuna API key configurata");
+  if (info.needsKey && !apiKey) throw new AiError("no-key", t("ai.noKey"));
   return apiKey;
 }
 
@@ -82,7 +83,7 @@ export async function* streamChat(
 ): AsyncGenerator<string> {
   const apiKey = await keyFor(settings);
   const model = modelFor(settings);
-  if (!model) throw new AiError("other", "Scegli un modello nelle impostazioni");
+  if (!model) throw new AiError("other", t("ai.noModel"));
 
   try {
     if (settings.provider === "anthropic") {
@@ -104,7 +105,7 @@ export async function* streamChat(
       }
       const final = await stream.finalMessage();
       if (final.stop_reason === "refusal") {
-        throw new AiError("other", "Il modello ha rifiutato questa richiesta");
+        throw new AiError("other", t("ai.refused"));
       }
       return;
     }
@@ -148,7 +149,7 @@ export async function testConnection(settings: Settings, apiKey: string | null):
         model: modelFor(settings),
         max_tokens: 32,
         output_config: { effort: "low" },
-        messages: [{ role: "user", content: "Rispondi solo: ok" }],
+        messages: [{ role: "user", content: "Reply with just: ok" }],
       });
       return;
     }
@@ -156,7 +157,7 @@ export async function testConnection(settings: Settings, apiKey: string | null):
     await client.chat.completions.create({
       model: modelFor(settings),
       max_tokens: 8,
-      messages: [{ role: "user", content: "Rispondi solo: ok" }],
+      messages: [{ role: "user", content: "Reply with just: ok" }],
     });
   } catch (err) {
     throw mapError(err, settings);
