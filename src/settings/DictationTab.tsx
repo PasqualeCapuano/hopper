@@ -20,6 +20,18 @@ export default function DictationTab({ s, update }: { s: Settings; update: (p: P
   const [keys, setKeys] = useState<Partial<Record<SttProvider, boolean>>>({});
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [mics, setMics] = useState<string[]>([]);
+  const [test, setTest] = useState<{ busy: boolean; text: string; ok?: boolean } | null>(null);
+
+  const testMic = async () => {
+    setTest({ busy: true, text: t("dict.testing") });
+    try {
+      const r = await invoke<{ device: string; rate: number; peak: number; seconds: number }>("dictation_test", { seconds: 3 });
+      const ok = r.peak >= 0.004;
+      setTest({ busy: false, ok, text: (ok ? t("dict.testOk") : t("dict.testSilent")) + ` · ${r.device} · ${r.rate} Hz · peak ${r.peak.toFixed(3)} · ${r.seconds.toFixed(1)} s` });
+    } catch (err) {
+      setTest({ busy: false, ok: false, text: String(err) });
+    }
+  };
 
   useEffect(() => {
     void invoke<string[]>("list_microphones").then(setMics).catch(() => setMics([]));
@@ -91,6 +103,10 @@ export default function DictationTab({ s, update }: { s: Settings; update: (p: P
             {mics.map((m) => <option key={m} value={m}>{m}</option>)}
           </select>
           <div className="help">{t("dict.deviceHelp")}</div>
+        </div>
+        <div className="btn-row">
+          <button className="btn small" onClick={() => void testMic()} disabled={test?.busy}>{t("dict.test")}</button>
+          {test ? <span className={test.busy ? "help" : test.ok ? "inline-ok" : "inline-err"}>{test.text}</span> : null}
         </div>
       </section>
 

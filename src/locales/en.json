@@ -320,5 +320,9 @@
   "dict.device": "Microphone",
   "dict.deviceDefault": "System default",
   "dict.deviceHelp": "Paired headphones often stay the system default even when you are not wearing them, and then deliver silence. Pick the built-in microphone to be safe.",
-  "dict.noAudioFrom": "No sound from “{{device}}”. Pick another microphone in Settings › Dictation, or check the Microphone permission."
+  "dict.noAudioFrom": "No sound from “{{device}}”. Pick another microphone in Settings › Dictation, or check the Microphone permission.",
+  "dict.test": "Test the microphone (3 s)",
+  "dict.testing": "Speak now…",
+  "dict.testOk": "Sound captured",
+  "dict.testSilent": "Silence"
 }

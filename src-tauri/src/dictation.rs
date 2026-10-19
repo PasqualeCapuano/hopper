@@ -253,7 +253,7 @@ fn finish(app: &AppHandle, result: Result<(Vec<f32>, u32, String), String>) {
             let peak = samples.iter().fold(0f32, |m, s| m.max(s.abs()));
             if peak < 0.004 {
                 // Name the device: a paired headset that is not really in use is the usual culprit.
-                set_state(app, "error", Some(format!("no-audio:{device}")));
+                set_state(app, "error", Some(format!("no-audio:{device} · peak {peak:.4}")));
                 hide_later(app, 6000);
                 return;
             }
@@ -310,6 +310,34 @@ pub fn hotkey(app: &AppHandle, pressed: bool) {
     } else if recording {
         stop(app)
     }
+}
+
+#[derive(Clone, Serialize)]
+pub struct MicTest {
+    device: String,
+    rate: u32,
+    peak: f32,
+    seconds: f32,
+}
+
+/// Records for `seconds` and reports the peak level: the Settings page uses it to
+/// tell a muted/absent microphone from a permission problem.
+#[tauri::command]
+pub fn dictation_test(app: AppHandle, seconds: f32) -> Result<MicTest, String> {
+    {
+        let state = app.state::<Dictation>();
+        if state.0.lock().unwrap().stop.is_some() {
+            return Err("busy".into());
+        }
+    }
+    let (tx, rx) = mpsc::channel::<()>();
+    let app2 = app.clone();
+    let handle = std::thread::spawn(move || record(&app2, rx));
+    std::thread::sleep(Duration::from_secs_f32(seconds.clamp(0.5, 10.0)));
+    let _ = tx.send(());
+    let (samples, rate, device) = handle.join().map_err(|_| "recording thread panicked".to_string())??;
+    let peak = samples.iter().fold(0f32, |m, s| m.max(s.abs()));
+    Ok(MicTest { device, rate, peak, seconds: samples.len() as f32 / rate.max(1) as f32 })
 }
 
 #[tauri::command]

@@ -620,7 +620,8 @@ pub fn run() {
             dictation::dictation_stop,
             dictation::dictation_done,
             dictation::dictation_insert,
-            dictation::list_microphones
+            dictation::list_microphones,
+            dictation::dictation_test
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

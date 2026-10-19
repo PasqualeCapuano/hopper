@@ -320,5 +320,9 @@
   "dict.device": "Microfono",
   "dict.deviceDefault": "Predefinito di sistema",
   "dict.deviceHelp": "Le cuffie associate restano spesso il microfono predefinito anche quando non le indossi, e allora arriva silenzio. Per sicurezza scegli il microfono integrato.",
-  "dict.noAudioFrom": "Nessun suono da “{{device}}”. Scegli un altro microfono in Impostazioni › Dettatura, o controlla il permesso Microfono."
+  "dict.noAudioFrom": "Nessun suono da “{{device}}”. Scegli un altro microfono in Impostazioni › Dettatura, o controlla il permesso Microfono.",
+  "dict.test": "Prova il microfono (3 s)",
+  "dict.testing": "Parla adesso…",
+  "dict.testOk": "Suono registrato",
+  "dict.testSilent": "Silenzio"
 }
