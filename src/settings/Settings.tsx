@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
 import { AiError, listModels, testConnection } from "../lib/ai";
 import { PROVIDERS, providerInfo } from "../lib/providers";
 import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import HotkeyRecorder from "./HotkeyRecorder";
 import ActionsTab from "./ActionsTab";
+import GeneralTab from "./GeneralTab";
+import { applyTheme } from "../lib/theme";
 import { deleteSecret, getSecret, setSecret } from "../lib/secrets";
 import {
   ANTHROPIC_MODELS,
@@ -35,7 +33,10 @@ export default function Settings() {
   }, []);
 
   useEffect(() => {
-    void loadSettings().then(setS);
+    void loadSettings().then((loaded) => {
+      setS(loaded);
+      void applyTheme(loaded.theme);
+    });
   }, []);
 
   if (!s) return null;
@@ -341,63 +342,6 @@ function HotkeyTab({ s, update }: { s: SettingsModel; update: (p: Partial<Settin
       <div className="field">
         <label>Nel popup</label>
         <div className="help">1–6 lancia un'azione rapida · ↵ invia o copia · ⌘↵ incolla nell'app · Esc chiude.</div>
-      </div>
-    </>
-  );
-}
-
-function GeneralTab({ s, update }: { s: SettingsModel; update: (p: Partial<SettingsModel>) => void }) {
-  const [auto, setAuto] = useState(s.autostart);
-  const [acc, setAcc] = useState<boolean | null>(null);
-  const [upd, setUpd] = useState<string | null>(null);
-
-  const checkUpdates = async () => {
-    setUpd("Controllo…");
-    try {
-      const u = await check();
-      if (!u) { setUpd("Hai già l'ultima versione."); return; }
-      setUpd(`Scarico la versione ${u.version}…`);
-      await u.downloadAndInstall();
-      await relaunch();
-    } catch (err) {
-      setUpd(`Controllo non riuscito: ${String(err)}`);
-    }
-  };
-
-  useEffect(() => {
-    void isEnabled().then(setAuto).catch(() => {});
-    void invoke<boolean>("accessibility_granted").then(setAcc);
-  }, []);
-
-  const toggleAuto = async () => {
-    if (auto) await disable();
-    else await enable();
-    setAuto(!auto);
-    update({ autostart: !auto });
-  };
-
-  return (
-    <>
-      <div>
-        <h1>Generale</h1>
-        <div className="lead">L'app vive nella barra dei menu. Nessun server: testi e chiavi restano sul tuo computer.</div>
-      </div>
-      <div className="field">
-        <label className="toggle"><input type="checkbox" checked={auto} onChange={() => void toggleAuto()} /> Avvia al login</label>
-      </div>
-      <div className="field">
-        <label>Permesso Accessibilità (macOS)</label>
-        <div className="help">Serve solo per "Incolla nell'app". {acc === null ? "" : acc ? "Concesso." : "Non concesso."}</div>
-        {acc === false ? <div><button className="btn small" onClick={() => void invoke("accessibility_prompt").then(() => invoke<boolean>("accessibility_granted")).then(setAcc)}>Richiedi permesso</button></div> : null}
-      </div>
-      <div className="field">
-        <label>Aggiornamenti</label>
-        <div className="help">Hopper controlla da sola all'avvio e ti avvisa nel popup. Gli aggiornamenti arrivano da GitHub e sono firmati.</div>
-        <div className="btn-row"><button className="btn small" onClick={() => void checkUpdates()}>Controlla ora</button>{upd ? <span className="help">{upd}</span> : null}</div>
-      </div>
-      <div className="field">
-        <label>Cronologia</label>
-        <div className="help">Gli ultimi 30 thread sono salvati in locale e si riaprono da "Continua in chat".</div>
       </div>
     </>
   );

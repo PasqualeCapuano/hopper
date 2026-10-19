@@ -10,6 +10,7 @@ import { newThread, upsertThread, type Thread } from "../lib/history";
 import { providerInfo } from "../lib/providers";
 import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import { ACTION_ICONS } from "../lib/icons";
+import { applyTheme } from "../lib/theme";
 import {
   buildPrompt,
   loadSettings,
@@ -90,13 +91,14 @@ export default function Popup() {
   useEffect(() => {
     void loadSettings().then((s) => {
       setSettings(s);
+      void applyTheme(s.theme);
       // Saved bindings (hotkey + per-action shortcuts) win over the compiled-in default.
       void applyHotkeys(s).catch(() => {});
     });
     // Quiet update check at launch; failures (dev builds, offline) are ignored.
     void check().then((u) => { if (u) setUpdate(u); }).catch(() => {});
     const unlistenOpen = listen<{ text: string | null; action: string | null }>("popup-open", (e) => {
-      void loadSettings().then(setSettings);
+      void loadSettings().then((s) => { setSettings(s); void applyTheme(s.theme); });
       reset(e.payload.text);
       setPendingAction(e.payload.action);
       setEntered(false);

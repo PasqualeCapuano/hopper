@@ -39,3 +39,9 @@ export function newThread(sourceText: string | null, title: string): Thread {
     messages: [],
   };
 }
+
+export async function clearThreads(): Promise<void> {
+  const s = await store();
+  await s.set("threads", []);
+  await s.save();
+}

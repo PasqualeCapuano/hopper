@@ -26,6 +26,7 @@ export interface Settings {
   systemPrompt: string;
   hotkey: string;
   autostart: boolean;
+  theme: "system" | "light" | "dark";
   actions: QuickAction[];
 }
 
@@ -87,6 +88,7 @@ export const DEFAULT_SETTINGS: Settings = {
     "Sei un assistente personale che lavora dentro un popup di sistema. Rispondi in modo diretto, senza preamboli né formule di cortesia inutili. Rispondi in italiano salvo che il testo o la richiesta siano in un'altra lingua.",
   hotkey: navigator.userAgent.includes("Mac") ? "Alt+Space" : "Ctrl+Shift+Space",
   autostart: false,
+  theme: "system",
   actions: DEFAULT_ACTIONS,
 };
 
