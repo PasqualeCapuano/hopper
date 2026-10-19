@@ -1,75 +1,130 @@
-# Hopper
+<p align="center">
+  <img src="src-tauri/icons/128x128@2x.png" width="96" alt="Hopper icon">
+</p>
 
-App da barra dei menu per macOS e Windows. Copi un testo, premi la hotkey (default **⌥ Space**) e si apre un popup sopra qualsiasi finestra con il testo copiato e le azioni rapide (traduci, riassumi, rispondi, correggi, spiega, chat libera). La risposta arriva in streaming; poi la copi, la incolli nell'app sotto o continui in chat.
+<h1 align="center">Hopper</h1>
 
-Flussi e bozzetti: https://claude.ai/artifact/BP8eFVt2fJ1AL3metXU6kj
+<p align="center">
+  Copy any text. Press a hotkey. Get an AI assistant right where you are.
+</p>
 
-## Look
+<p align="center">
+  <a href="https://github.com/PasqualeCapuano/hopper/releases/latest">Download</a> ·
+  <a href="#install">Install</a> ·
+  <a href="#first-run">First run</a> ·
+  <a href="#privacy">Privacy</a> ·
+  <a href="#faq">FAQ</a>
+</p>
 
-Liquid glass: finestra trasparente con vibrancy nativa (crate `window-vibrancy`, materiale Popover su macOS, acrylic su Windows) e superfici traslucide in CSS sopra la sfocatura. Un solo accento, rosso (`--accent`), tema chiaro e scuro seguono il sistema. Font di sistema.
+---
 
-## Stack
+Hopper lives in your menu bar (or system tray on Windows). Whenever you copy a piece of text, in any app, press the hotkey and a small window appears over everything else with that text and a row of quick actions. Pick one, watch the answer stream in, then copy it, paste it straight back into the app you came from, or keep the conversation going.
 
-- **Tauri v2** (Rust) + **React 19** + TypeScript + Vite
-- Plugin Tauri: `global-shortcut`, `clipboard-manager`, `autostart`, `store`, `opener`
-- `keyring` → API key nel Keychain di macOS / Credential Manager di Windows
-- `enigo` → simula ⌘V / Ctrl+V per "Incolla nell'app" (su macOS serve il permesso Accessibilità)
-- SDK ufficiali `@anthropic-ai/sdk` e `openai`, chiamati dalla webview con streaming
+No browser tab, no switching windows, no pasting into a chat box.
 
-## Vincolo di prodotto
+## What it does
 
-Niente OAuth degli abbonamenti Claude Pro/Max o ChatGPT Plus: non è permesso alle app di terze parti. Si usa una API key a consumo. Con Claude Max hai crediti API mensili inclusi (100 $ su Max 5x, 200 $ su Max 20x), richiedibili da console.anthropic.com.
+- **Translate, summarize, reply, fix, explain** the text you just copied, with one key press each.
+- **Free prompt**: type what you want done with the text instead of picking an action.
+- **Chat**: turn any answer into a conversation without losing the original text as context.
+- **Paste back**: send the result straight into the app you were in, no clipboard juggling.
+- **Your own actions**: write custom prompts, choose what happens after the answer, give each a shortcut.
+- **Your own AI**: works with Claude (Anthropic) or OpenAI. You bring the key, you choose the model.
+- **Follows your system**: light and dark appearance, system font, a translucent window that sits over your desktop.
 
-## Installazione
+## Install
 
-**macOS** (Apple Silicon e Intel): scarica il `.dmg` dall'[ultima release](https://github.com/PasqualeCapuano/hopper/releases/latest) e trascina Hopper in Applicazioni. Oppure da terminale:
+### macOS (Apple Silicon and Intel)
+
+Download the `.dmg` from the [latest release](https://github.com/PasqualeCapuano/hopper/releases/latest), open it and drag Hopper to Applications.
+
+Or paste this in Terminal, which downloads the latest version and installs it for you:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/PasqualeCapuano/hopper/main/install.sh | sh
 ```
 
-**Windows**: scarica il `-setup.exe` dall'ultima release. Oppure da PowerShell:
+### Windows 10 / 11
+
+Download the `-setup.exe` from the [latest release](https://github.com/PasqualeCapuano/hopper/releases/latest) and run it.
+
+Or paste this in PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/PasqualeCapuano/hopper/main/install.ps1 | iex
 ```
 
-I build non sono ancora firmati: macOS mostra "sviluppatore non identificato" (lo script di installazione lo risolve), Windows mostra l'avviso SmartScreen (Ulteriori informazioni → Esegui comunque). Gli aggiornamenti successivi arrivano dall'app stessa.
+> **About the security warnings.** Hopper is not code-signed yet, so macOS may say it comes from an "unidentified developer" and Windows may show a SmartScreen notice. On macOS, right-click the app and choose Open, or use the Terminal command above, which handles it. On Windows, click "More info" then "Run anyway". The source code is right here if you want to check what it does.
 
-Hotkey di default: ⌥ Space su macOS, Ctrl+Shift+Space su Windows. Si cambia nelle impostazioni.
+## First run
 
-## Sviluppo
+1. Click the red Hopper icon in the menu bar and open **Settings**.
+2. Choose a provider, **Claude** or **OpenAI**, and paste an API key.
+   - Claude: create a key at [console.anthropic.com](https://console.anthropic.com/settings/keys).
+   - OpenAI: create a key at [platform.openai.com](https://platform.openai.com/api-keys).
+3. Press **Test and save**. The key goes into the macOS Keychain or the Windows Credential Manager, never into a file.
+4. Copy some text anywhere and press **⌥ Space** (macOS) or **Ctrl+Shift+Space** (Windows).
 
-```bash
-npm install
-npm run tauri dev      # sviluppo (prima compilazione: alcuni minuti)
-npm run tauri build    # bundle .app/.dmg (macOS) o .msi (Windows)
-```
+### What it costs
 
-Prerequisiti: Node 20+, Rust (rustup), Xcode Command Line Tools su macOS.
+Hopper itself is free. The AI replies are billed by your provider, per request, on the key you added. A typical request, a few hundred words in and a short answer out, costs about one cent with Claude Opus. Three hundred requests a month is roughly four dollars.
 
-## Struttura
+If you have a **Claude Max** subscription, it includes a monthly API credit (100 $ on Max 5x, 200 $ on Max 20x) that covers this kind of use entirely. Claim it from your Anthropic Console account. Claude Pro/Max and ChatGPT Plus logins themselves cannot be used by third-party apps, which is why Hopper asks for a key.
 
-```
-src-tauri/src/lib.rs        tray, hotkey globale, posizionamento popup, Keychain, incolla
-src-tauri/tauri.conf.json   finestra popup (senza bordi, always-on-top), CSP
-src-tauri/capabilities/     permessi IPC
-src/popup/Popup.tsx         popup: idle → risultato → chat, errori, scorciatoie da tastiera
-src/settings/Settings.tsx   account/modello, hotkey, azioni rapide, generale
-src/lib/ai.ts               streaming Anthropic/OpenAI, mappatura errori
-src/lib/settings.ts         impostazioni (plugin store) e azioni di default
-src/lib/secrets.ts          API key via Keychain (comandi Rust)
-src/lib/history.ts          ultimi 30 thread in locale
-```
+## Using Hopper
 
-## Da fare
+| Keys | What happens |
+|---|---|
+| ⌥ Space / Ctrl+Shift+Space | Open the popup with whatever is in the clipboard |
+| 1 – 6 | Run a quick action |
+| ↵ | Send a free prompt, or copy the answer |
+| ⌘ ↵ / Ctrl ↵ | Paste the answer into the app you came from |
+| Esc | Close (also closes when you click elsewhere) |
 
-- Rifinire l'icona (generata da `python3 scripts/make-icon.py`, poi `npm run tauri icon src-tauri/icons/hopper-source.png`)
-- Firma e notarizzazione macOS, firma Windows
-- Homebrew tap e winget
+Drag the popup by its header to move it. It opens centred on the screen you are working on.
 
-## Release
+**Quick actions** live in Settings → Quick actions. Each one is a prompt where `{{testo}}` stands for the copied text. You can choose what happens after the answer: show it, copy it right away, or paste it right away. The first six appear in the popup.
 
-Ogni tag `vX.Y.Z` fa partire `.github/workflows/release.yml`, che compila su macOS (universal) e Windows, pubblica gli installer nella Release e il `latest.json` letto dall'updater. Prima di taggare, aggiorna `version` in `src-tauri/tauri.conf.json` e `package.json`. La chiave che firma gli aggiornamenti è in `~/.tauri/hopper.key` (non perderla) e nel secret `TAURI_SIGNING_PRIVATE_KEY` della repo.
-- Cronologia thread visibile nel popup (oggi è solo salvata)
-- Rilevare l'app di origine del testo copiato
+**Instructions for your assistant** (Settings → Account) apply to every request: who you are, which language you want, what tone. Hopper's default replies in Italian unless the text is in another language; change it to whatever suits you.
+
+**Paste back** on macOS needs the Accessibility permission, because Hopper has to press ⌘V on your behalf. macOS asks once, the first time you use it. Everything else works without it.
+
+## Privacy
+
+- Hopper has no server and no account. There is nothing to sign up for.
+- The only network traffic is the request to the provider you chose, sent directly from your computer to Anthropic or OpenAI, plus a check for new versions on GitHub at launch.
+- The clipboard is read only when you press the hotkey, never in the background.
+- API keys are stored in the system keychain. Conversation history (last 30 threads) stays in a local file you can delete at any time.
+- The code is open source under the MIT license, so all of the above can be verified.
+
+## Updates
+
+Hopper checks for a new version when it starts. If there is one, the popup shows "vX.Y.Z available · Install". One click downloads it, verifies its signature and restarts. You can also check from Settings → General.
+
+## FAQ
+
+**The hotkey does nothing.**
+Another app probably owns that combination. Claude Desktop, for instance, also uses ⌥ Space on macOS. Change Hopper's hotkey in Settings → Shortcuts.
+
+**"API key not valid".**
+The provider rejected the key. Open Settings → Account, paste it again and press Test and save. Keys from the Anthropic Console start with `sk-ant-`.
+
+**macOS keeps asking to access the keychain.**
+Choose "Always allow". This happens with unsigned builds and will go away once Hopper is notarized.
+
+**Can I use it with my ChatGPT Plus or Claude Pro login?**
+No. Those logins are reserved for the official apps. Hopper uses API keys, which are a separate, pay-per-use service from the same companies. Claude Max subscribers get monthly API credit, see above.
+
+**Does it work offline?**
+The app opens, but replies need the provider. If you are offline Hopper keeps the request and offers a Retry.
+
+**Where is my data?**
+macOS: `~/Library/Application Support/com.pasqualecapuano.hopper/`. Windows: `%APPDATA%\com.pasqualecapuano.hopper\`. Delete the folder to reset everything except the key, which you remove from Settings.
+
+## For developers
+
+Build instructions, architecture and the release process are in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Built with [Tauri](https://tauri.app), Rust and React.
+
+## License
+
+MIT © Pasquale Capuano
