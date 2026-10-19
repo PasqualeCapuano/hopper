@@ -270,7 +270,7 @@
   "popup.placeholderImage": "Ask anything about this image…",
   "popup.ctxImage": "Context: image",
   "err.screen.title": "Screenshots need the Screen Recording permission",
-  "err.screen.msg": "macOS asks once: System Settings › Privacy & Security › Screen Recording. Then press the screenshot hotkey again.",
+  "err.screen.msg": "macOS asks once: System Settings › Privacy & Security › Screen Recording. Turn Hopper on there, then relaunch Hopper: the permission only applies after a restart.",
   "err.screen.open": "Open Screen Recording",
   "err.novision.title": "This model doesn't accept images",
   "err.novision.msg": "Pick a model with vision in Settings › Account (Claude, GPT, Gemini, or llava / qwen2.5-vl on Ollama).",
@@ -284,5 +284,6 @@
   "act.inputAny": "Text and images",
   "act.inputText": "Text only",
   "act.inputImage": "Images only",
-  "tray.shot": "Capture screen…"
+  "tray.shot": "Capture screen…",
+  "err.screen.relaunch": "Relaunch Hopper"
 }

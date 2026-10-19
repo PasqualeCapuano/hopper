@@ -27,6 +27,16 @@ Liquid glass: finestra trasparente con vibrancy nativa (crate `window-vibrancy`,
 
 Interfaccia in inglese di default, italiano selezionabile in Impostazioni › Generale. Stringhe con **i18next** (`react-i18next` nei componenti, `t()` di `src/lib/i18n.ts` nel codice non React): un file JSON per lingua in `src/locales/`, chiavi piatte (`popup.copy`). Per aggiungere una lingua: copia `en.json`, traducilo, registralo in `src/lib/i18n.ts` (`resources` e `LOCALES`). Seguono la lingua anche le azioni rapide di default (`src/lib/settings.ts`), la libreria (`src/lib/templates.ts`), il system prompt (`src/lib/profile.ts`) e il menu della tray (`set_tray_labels` in Rust).
 
+## Build locali e permessi macOS
+
+I permessi TCC (Accessibilità, Registrazione schermo) sono legati alla firma dell'app: un build non firmato cambia identità a ogni compilazione e macOS ignora il permesso già concesso. Per i build locali firma con l'identità Apple Development presente nel portachiavi:
+
+```sh
+APPLE_SIGNING_IDENTITY="Apple Development: Pasquale Capuano (2X35448Z65)" npm run tauri build -- --bundles app
+```
+
+Registrazione schermo vale solo dopo il riavvio dell'app. Se un permesso resta "attivo" ma inefficace: `tccutil reset ScreenCapture com.pasqualecapuano.hopper` e riconcedilo.
+
 ## Vincolo di prodotto
 
 Niente OAuth degli abbonamenti Claude Pro/Max o ChatGPT Plus: non è permesso alle app di terze parti. Si usa una API key a consumo, salvata in locale. Con Claude Max hai crediti API mensili inclusi (100 $ su Max 5x, 200 $ su Max 20x), richiedibili da console.anthropic.com.

@@ -449,6 +449,7 @@ export default function Popup() {
               <div className="p">{t("err.screen.msg")}</div>
               <div className="btn-row">
                 <button className="btn small primary" onClick={() => void invoke("screen_recording_prompt")}>{t("err.screen.open")}</button>
+                <button className="btn small" onClick={() => void relaunch()}>{t("err.screen.relaunch")}</button>
                 <button className="btn small" onClick={hide}>{t("popup.close")}</button>
               </div>
             </div>
