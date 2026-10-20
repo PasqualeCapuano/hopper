@@ -326,5 +326,9 @@
   "dict.testOk": "Suono registrato",
   "dict.testSilent": "Silenzio",
   "dict.noAccessibility": "Trascritto e copiato negli appunti. Per scriverlo al posto tuo Hopper ha bisogno di Accessibilità: Impostazioni di Sistema › Privacy e sicurezza › Accessibilità.",
-  "dict.testHearing": "Ti sento, continua a parlare…"
+  "dict.testHearing": "Ti sento, continua a parlare…",
+  "dict.keyNote": "Usa la chiave {{name}}, indipendente dal provider delle chat in Account e modello.",
+  "dict.keyStored": "Salvata.",
+  "dict.keyLabel": "API key {{name}}",
+  "dict.keyMissingShort": "Manca la chiave {{name}}. Incollala qui: serve solo per la trascrizione."
 }

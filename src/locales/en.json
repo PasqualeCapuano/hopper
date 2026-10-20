@@ -326,5 +326,9 @@
   "dict.testOk": "Sound captured",
   "dict.testSilent": "Silence",
   "dict.noAccessibility": "Transcribed and copied to the clipboard. To type it for you, Hopper needs Accessibility: System Settings › Privacy & Security › Accessibility.",
-  "dict.testHearing": "I hear you, keep talking…"
+  "dict.testHearing": "I hear you, keep talking…",
+  "dict.keyNote": "Uses the {{name}} key, independent of the chat provider in Account & model.",
+  "dict.keyStored": "Saved.",
+  "dict.keyLabel": "{{name}} API key",
+  "dict.keyMissingShort": "No {{name}} key yet. Paste it here: it is stored only for transcription."
 }

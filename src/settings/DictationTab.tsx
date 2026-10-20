@@ -4,7 +4,8 @@ import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
 import { applyHotkeys, prettyShortcut } from "../lib/hotkeys";
 import { providerInfo } from "../lib/providers";
-import { getSecret } from "../lib/secrets";
+import { deleteSecret, getSecret, setSecret } from "../lib/secrets";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { STT_MODELS } from "../lib/dictation";
 import type { DictationSettings, Settings, SttProvider } from "../lib/settings";
 import HotkeyRecorder from "./HotkeyRecorder";
@@ -25,6 +26,25 @@ export default function DictationTab({ s, update }: { s: Settings; update: (p: P
   const [mics, setMics] = useState<string[]>([]);
   const [test, setTest] = useState<{ busy: boolean; text: string; ok?: boolean } | null>(null);
   const [level, setLevel] = useState(0);
+  const [keyDraft, setKeyDraft] = useState("");
+  const [keyMsg, setKeyMsg] = useState<string | null>(null);
+
+  const refreshKeys = () =>
+    Promise.all(PROVIDERS.map(async (p) => [p.id, !!(await getSecret(p.id))] as const)).then((e) => setKeys(Object.fromEntries(e)));
+
+  const saveKey = async () => {
+    const k = keyDraft.trim();
+    if (!k) return;
+    await setSecret(d.provider, k);
+    setKeyDraft("");
+    setKeyMsg(t("dict.keyStored"));
+    await refreshKeys();
+  };
+  const removeKey = async () => {
+    await deleteSecret(d.provider);
+    setKeyMsg(null);
+    await refreshKeys();
+  };
   const [peakSeen, setPeakSeen] = useState(0);
 
   // Live level while the test records, so the bars move as you speak.
@@ -52,8 +72,13 @@ export default function DictationTab({ s, update }: { s: Settings; update: (p: P
 
   useEffect(() => {
     void invoke<string[]>("list_microphones").then(setMics).catch(() => setMics([]));
-    void Promise.all(PROVIDERS.map(async (p) => [p.id, !!(await getSecret(p.id))] as const)).then((e) => setKeys(Object.fromEntries(e)));
+    void refreshKeys();
   }, []);
+
+  useEffect(() => {
+    setKeyDraft("");
+    setKeyMsg(null);
+  }, [d.provider]);
 
   const changeHotkey = async (shortcut: string) => {
     const next = { ...s, dictation: { ...d, hotkey: shortcut } };
@@ -107,9 +132,25 @@ export default function DictationTab({ s, update }: { s: Settings; update: (p: P
             </button>
           ))}
         </div>
-        <div className={keys[d.provider] ? "inline-ok" : "inline-err"}>
-          {keys[d.provider] ? t("dict.keySaved", { name }) : t("dict.keyMissing", { name })} <span className="help" style={{ display: "inline" }}>· {STT_MODELS[d.provider]}</span>
-        </div>
+        <div className="help">{t("dict.keyNote", { name })} · {STT_MODELS[d.provider]}</div>
+        {keys[d.provider] ? (
+          <div className="btn-row">
+            <span className="inline-ok">{t("dict.keySaved", { name })}</span>
+            <button className="btn small" onClick={() => void removeKey()}>{t("acc.remove")}</button>
+            {keyMsg ? <span className="help">{keyMsg}</span> : null}
+          </div>
+        ) : (
+          <div className="field">
+            <div className="btn-row">
+              <input className="mono" type="password" placeholder={providerInfo(d.provider).keyPlaceholder} value={keyDraft} onChange={(e) => setKeyDraft(e.target.value)} style={{ flexGrow: 1, maxWidth: 420 }} aria-label={t("dict.keyLabel", { name })} />
+              <button className="btn primary small" onClick={() => void saveKey()} disabled={!keyDraft.trim()}>{t("nav.save")}</button>
+            </div>
+            <div className="help">
+              {t("dict.keyMissingShort", { name })}
+              {providerInfo(d.provider).keyUrl ? <> <a href="#" onClick={(e) => { e.preventDefault(); void openUrl(providerInfo(d.provider).keyUrl!); }}>{t("acc.createHere")}</a>.</> : null}
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="section">
